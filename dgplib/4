@@ -6,8 +6,7 @@ import numpy as np
 from gpflow import settings
 
 from gpflow.decors import params_as_tensors, autoflow
-from gpflow.kullback_leiblers import gauss_kl
-from gpflow.mean_functions import Linear, Zero
+from gpflow.mean_functions import Linear
 from gpflow.params import Parameter, Parameterized
 
 class Layer(Parameterized):
@@ -15,23 +14,26 @@ class Layer(Parameterized):
     The basic layer class. Handles input_dim and output_dim.
     """
 
-    def __init__(self, input_dim, output_dim, num_inducing, kernel, name=None):
+    def __init__(self, input_dim, output_dim, Z, kernel, mean_function, name=None):
         """
         input_dim is an integer
         output_dim is an integer
-        num_inducing is the number of inducing inputs
+        Z is a matrix of inducing inputs
         kernel is a kernel object (or list of kernel objects)
+        mean_fucntion is a mean_function object
         """
 
         super(Layer, self).__init__(name=name)
 
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.num_inducing = num_inducing
-        self.Z = None
+        self.num_inducing = Z.shape[0]
+        self.Z = Parameter(Z)
+
+        assert input_dim == Z.shape[1]
 
         self.kernel = kernel
-        self.mean_function = None
+        self.mean_function = mean_function
 
         shape = (self.num_inducing, self.output_dim)
 
@@ -42,7 +44,7 @@ class Layer(Parameterized):
         self.q_sqrt = Parameter(q_sqrt)
 
     @params_as_tensors
-    def build_prior_KL(self, K):
+    def build_prior_KL(self):
         pass
 
     @params_as_tensors
@@ -68,22 +70,6 @@ def find_weights(input_dim, output_dim, X):
     return W
 
 class InputLayer(Layer):
-    def __init__(self, input_dim, output_dim, Z, num_inducing, kernel, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        Z is a matrix of inducing inputs
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
-
-        super(InputLayer, self).__init__(input_dim, output_dim, num_inducing,
-                                         kernel, name)
-        self.Z = Parameter(Z)
-
-        assert self.Z[0] == self.num_inducing
-        assert self.Z[1] == self.input_dim
-
     def initialize_forward(self, X):
         """
         Initialize Layer and Propagate initialization forwards
@@ -99,29 +85,6 @@ class InputLayer(Layer):
         return Z_running, X_running
 
 
-class HiddenLayer(Layer):
-    def initialize_forward(self, X, Z):
-        """
-        Initialize Layer and Propagate initialization forwards
-        """
 
-        W = find_weights(self.input_dim, self.output_dim, X)
 
-        self.Z = Parameter(Z)
 
-        Z_running = self.Z.value.copy().dot(W)
-        X_running = X.copy().dot(W)
-
-        self.mean_function = Linear(A=W)
-
-        return Z_running, X_running
-
-class OutputLayer(Layer):
-    ###Maybe add __init__ with Y to do assertion on outout_dim
-    def initialize_forward(self, X, Z):
-        """
-        Initialize Layer and Propagate initialization forwards
-        """
-
-        self.Z = Parameter(Z)
-        self.mean_function = Zero()
