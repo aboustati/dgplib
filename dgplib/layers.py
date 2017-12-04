@@ -5,6 +5,7 @@ import numpy as np
 
 from gpflow import settings
 
+from gpflow.conditionals import conditional
 from gpflow.decors import params_as_tensors, autoflow
 from gpflow.kullback_leiblers import gauss_kl
 from gpflow.mean_functions import Linear, Zero
@@ -46,8 +47,37 @@ class Layer(Parameterized):
         gauss_kl(self.q_mu, self.q_sqrt, K=K)
 
     @params_as_tensors
-    def _build_predict(self, Xnew, full_cov=False):
-        pass
+    def _build_predict(self, Xnew, full_cov=False, stochastic=True):
+        # Credits to High Salimbeni for this (@hughsalimbeni)
+        def conditional(X, full_cov=False):
+            mean, var = conditional(Xnew=Xnew,
+                                    X=Z,
+                                    kern=self.kern,
+                                    f=self.q_mu,
+                                    q_sqrt=self.q_sqrt,
+                                    full_cov=full_cov,
+                                    white=True)
+
+            return mean + self.mean_function(X), var
+
+        def multisample_conditional(self, Xnew, full_cov=False):
+            if full_cov:
+                f = lambda a: conditional(a, full_cov=full_cov)
+                mean, var = tf.map_fn(f, X, dtype(settings.tf_float,
+                                                  settings.tf_float))
+                return tf.stack(mean), tf.stack(var)
+            else:
+                S, N, D = shape_as_list(X)
+                X_flat = tf.reshape(X, [S*N, D])
+                mean, var = conditional(x_flat)
+                return [tf.reshape(m, [S, N, -1]) for m in [mean, var]]
+
+        if stochastic:
+            mean, var = multisample_conditional(Xnew, full_cov)
+        else:
+            mean, var = conditional(Xnew, full_cov)
+
+        return mean, var
 
 def find_weights(input_dim, output_dim, X):
     """
