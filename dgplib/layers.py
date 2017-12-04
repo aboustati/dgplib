@@ -11,6 +11,8 @@ from gpflow.kullback_leiblers import gauss_kl
 from gpflow.mean_functions import Linear, Zero
 from gpflow.params import Parameter, Parameterized
 
+from .utils import shape_as_list
+
 class Layer(Parameterized):
     """
     The basic layer class. Handles input_dim and output_dim.
