@@ -41,7 +41,7 @@ class Layer(Parameterized):
         self.q_mu = Parameter(np.zeros(shape))
 
         q_sqrt = np.dstack([np.eye(self.num_inducing)
-                                 for _ in range(self.output_dim)])
+                            for _ in range(self.output_dim)])
         self.q_sqrt = Parameter(q_sqrt)
 
     @params_as_tensors
@@ -51,27 +51,27 @@ class Layer(Parameterized):
     @params_as_tensors
     def _build_predict(self, Xnew, full_cov=False, stochastic=True):
         # Credits to High Salimbeni for this (@hughsalimbeni)
-        def conditional(X, full_cov=False):
+        def f_conditional(Xnew, full_cov=False):
             mean, var = conditional(Xnew=Xnew,
-                                    X=Z,
+                                    X=self.Z,
                                     kern=self.kern,
                                     f=self.q_mu,
                                     q_sqrt=self.q_sqrt,
                                     full_cov=full_cov,
                                     white=True)
 
-            return mean + self.mean_function(X), var
+            return mean + self.mean_function(Xnew), var
 
-        def multisample_conditional(self, Xnew, full_cov=False):
+        def multisample_conditional(Xnew, full_cov=False):
             if full_cov:
-                f = lambda a: conditional(a, full_cov=full_cov)
-                mean, var = tf.map_fn(f, X, dtype(settings.tf_float,
+                f = lambda a: f_conditional(a, full_cov=full_cov)
+                mean, var = tf.map_fn(f, Xnew, dtype=(settings.tf_float,
                                                   settings.tf_float))
                 return tf.stack(mean), tf.stack(var)
             else:
-                S, N, D = shape_as_list(X)
-                X_flat = tf.reshape(X, [S*N, D])
-                mean, var = conditional(x_flat)
+                S, N, D = shape_as_list(Xnew)
+                X_flat = tf.reshape(Xnew, [S*N, D])
+                mean, var = f_conditional(X_flat)
                 return [tf.reshape(m, [S, N, -1]) for m in [mean, var]]
 
         if stochastic:
@@ -149,11 +149,11 @@ class HiddenLayer(Layer):
         return Z_running, X_running
 
 class OutputLayer(Layer):
-    ###Maybe add __init__ with Y to do assertion on outout_dim
-    def initialize_forward(self, X, Z):
+    ###Maybe add __init__ with Y to do assertion on output_dim
+    def initialize_forward(self, X, Z, mean_function):
         """
         Initialize Layer and Propagate initialization forwards
         """
 
         self.Z = Parameter(Z)
-        self.mean_function = Zero()
+        self.mean_function = mean_function
