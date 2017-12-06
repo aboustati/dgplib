@@ -83,15 +83,15 @@ class Layer(Parameterized):
 
 def find_weights(input_dim, output_dim, X):
     """
-    Find the weights of the Linear mean function based on input and output
-    dimensions of the layer
+    Find the initial weights of the Linear mean function based on
+    input and output dimensions of the layer
     """
 
     if input_dim == output_dim:
         W = np.eye(input_dim)
     elif input_dim > output_dim:
         _, _, V = np.linalg.svd(X, full_matrices=False)
-        W = V[:input_dim, :].T
+        W = V[:output_dim, :].T
     elif input_dim < output_dim:
         I = np.eye(input_dim)
         zeros = np.zeros((input_dim, output_dim - input_dim))
