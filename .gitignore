@@ -7,3 +7,7 @@ __pycache__
 
 # Jupyter
 .ipynb_checkpoints
+
+# Setuptools
+/dist/
+/*.egg-info
