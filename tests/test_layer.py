@@ -7,8 +7,9 @@ import unittest
 
 import numpy as np
 
-from dgplib.layers import find_weights
-from gpflow.kernels import White
+from dgplib.layers import find_weights, InputLayer, HiddenLayer
+from gpflow.kernels import White, RBF
+from gpflow.mean_functions import Linear
 from gpflow.test_util import GPflowTestCase
 
 class LayerTest(unittest.TestCase):
@@ -45,6 +46,76 @@ class WeightsTest(unittest.TestCase):
             self.assertEqual(W.shape, (1,2))
         with self.subTest():
             self.assertTrue(np.allclose(W, V))
+
+class InputLayerTest(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(42)
+        kernel = RBF(2)
+        input_dim = 2
+        output_dim = 2
+        self.W0 = np.zeros((input_dim, output_dim))
+        mean_function = Linear(A=self.W0)
+        self.Z = self.rng.randn(5,2)
+        num_inducing = 5
+
+        self.layer = InputLayer(input_dim=input_dim,
+                                output_dim=output_dim,
+                                Z=self.Z,
+                                num_inducing=num_inducing,
+                                kernel=kernel,
+                                mean_function=mean_function)
+
+        self.X = self.rng.randn(10,2)
+
+    def test_initialize_forward(self):
+        Z_running, X_running = self.layer.initialize_forward(self.X)
+
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
+
+        with self.subTest():
+           self.assertTrue(np.allclose(Z_running, self.Z))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
+
+class HiddenLayerTest(unittest.TestCase):
+    def setUp(self):
+        self.rng = np.random.RandomState(42)
+        kernel = RBF(2)
+        input_dim = 2
+        output_dim = 2
+        self.W0 = np.zeros((input_dim, output_dim))
+        mean_function = Linear(A=self.W0)
+        self.Z = self.rng.randn(5,2)
+        num_inducing = 5
+
+        self.layer = HiddenLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel=kernel,
+                                 mean_function=mean_function)
+
+        self.X = self.rng.randn(10,2)
+
+    def test_initialize_forward(self):
+        Z_running, X_running = self.layer.initialize_forward(self.X, self.Z)
+
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
+
+        with self.subTest():
+           self.assertTrue(np.allclose(Z_running, self.Z))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
+
+class OutputLayerTest(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_initialize_forward(self):
+        pass
 
 if __name__=='__main__':
     unittest.main()
