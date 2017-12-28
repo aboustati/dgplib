@@ -7,7 +7,7 @@ import unittest
 
 import numpy as np
 
-from dgplib.layers import find_weights, InputLayer, HiddenLayer
+from dgplib.layers import find_weights, InputLayer, HiddenLayer, OutputLayer
 from gpflow.kernels import White, RBF
 from gpflow.mean_functions import Linear
 from gpflow.test_util import GPflowTestCase
@@ -87,7 +87,7 @@ class HiddenLayerTest(unittest.TestCase):
         output_dim = 2
         self.W0 = np.zeros((input_dim, output_dim))
         mean_function = Linear(A=self.W0)
-        self.Z = self.rng.randn(5,2)
+        self.Z = self.rng.randn(5, 2)
         num_inducing = 5
 
         self.layer = HiddenLayer(input_dim=input_dim,
@@ -96,7 +96,7 @@ class HiddenLayerTest(unittest.TestCase):
                                  kernel=kernel,
                                  mean_function=mean_function)
 
-        self.X = self.rng.randn(10,2)
+        self.X = self.rng.randn(10, 2)
 
     def test_initialize_forward(self):
         Z_running, X_running = self.layer.initialize_forward(self.X, self.Z)
@@ -112,10 +112,27 @@ class HiddenLayerTest(unittest.TestCase):
 
 class OutputLayerTest(unittest.TestCase):
     def setUp(self):
-        pass
+        self.rng = np.random.RandomState(42)
+        kernel = RBF(2)
+        input_dim = 2
+        output_dim = 2
+        mean_function = None
+        self.Z = self.rng.randn(5, 2)
+        num_inducing = 5
+
+        self.layer = OutputLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel=kernel,
+                                 mean_function=mean_function)
+
+        self.X = self.rng.randn(10,2)
 
     def test_initialize_forward(self):
-        pass
+        _ = self.layer.initialize_forward(self.X, self.Z)
+
+        with self.subTest():
+           self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
 
 if __name__=='__main__':
     unittest.main()
