@@ -52,7 +52,7 @@ class Layer(Parameterized):
 
     @params_as_tensors
     def build_prior_KL(self, K):
-        gauss_kl(self.q_mu, self.q_sqrt, K=K)
+        return gauss_kl(self.q_mu, self.q_sqrt, K=K)
 
     @params_as_tensors
     def _build_predict(self, Xnew, full_cov=False, stochastic=True):
