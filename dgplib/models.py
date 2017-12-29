@@ -11,7 +11,7 @@ class Sequential(Parameterized):
 
     def __init__(self, layers=None, name=None):
         """
-        layers is a list of layer objects
+        - layers is a list of layer objects.
         """
         self.layers = ParamList([])
 
@@ -23,9 +23,9 @@ class Sequential(Parameterized):
 
     def add(self, layer):
         """
-        Adds a layer instance on top of the layer stack
+        Adds a layer instance on top of the layer stack.
 
-        layer is an instance of an object that inherits from Layer
+        - layer is an instance of an object that inherits from Layer
         """
         assert issubclass(layer, Layer)
 
@@ -35,3 +35,12 @@ class Sequential(Parameterized):
             assert self.layers[-1].output_dim == layer.input_dim
 
         self.layers.append(layer)
+
+    def get_dims(self):
+        """
+        Get a list of the dimensions of the constituent layers.
+        """
+        dims = [(l.input_dim, l.output_dim) for l in self.layers]
+
+        return dims
+
