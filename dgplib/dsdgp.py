@@ -3,12 +3,12 @@ import tensorflow as tf
 
 from gpflow import settings
 
-from gpflow.decors import autoflow, defer_build
+from gpflow.decors import autoflow, defer_build, params_as_tensors
 from gpflow.mean_functions import Zero
 from gpflow.model import Model
 from gpflow.params import DataHolder, Minibatch
 
-from .utils import normal_sample, tile_over_samples
+from .utils import normal_sample, shape_as_list, tile_over_samples
 
 class DSDGP(Model):
     """
@@ -72,6 +72,56 @@ class DSDGP(Model):
             Y = Minibatch(Y, batch_size=minibatch_size, seed=0)
 
         self.X, self.Y = X, Y
+
+    #Credits to Hugh Salimbeni
+    @params_as_tensors
+    def propagate(self, Xnew, full_cov=False, num_samples=1):
+        """
+        Propagate points Xnew through DGP cascade.
+        """
+        Fs = [tile_over_samples(Xnew, num_samples), ]
+        Fmeans, Fvars = [], []
+        for layer in self.layers.layers:
+            mean, var = layer._build_predict(Xnew, full_cov, stochastic=True)
+            F = normal_sample(mean, var, full_cov=full_cov)
+
+            Fs.append(F)
+            Fmeans.append(mean)
+            Fvars.append(var)
+
+        return Fs[:1], Fmeans, Fvars
+
+    @params_as_tensors
+    def _build_predict(self, Xnew, full_cov=False, num_samples=1):
+        Fs, Fmeans, Fvars = self.propagate(Xnew, full_cov, num_samples)
+        return Fmeans[-1], Fvars[-1]
+
+    #Credits to Hugh Salimbeni
+    @params_as_tensors
+    def build_likelihood(self):
+        """
+        Gives variational bound on the model likelihood.
+        """
+
+        Fmean, Fvar = self.build_predict(self.X, full_cov=False, num_samples=self.num_samples)
+
+        S, N, D = shape_as_list(Fmean)
+        Y = tile_over_samples(self.Y, self.num_samples)
+
+        f = lambda a: self.likelihood.variational_expectations(a[0], a[1], a[2])
+        var_exp = tf.map_fn(f, (Fmean, Fvar, Y), dtype=settings.float_type)
+        var_exp = tf.stack(var_exp) #SN
+
+        var_exp = tf.reduce_mean(var_exp, 0) # S,N -> N. Average over samples
+        L = tf.reduce_sum(var_exp) # N -> scalar. Sum over data (minibatch)
+
+        KL = 0.
+        for layer in self.layers.layers:
+            KL += layer.build_prior_KL(K=None)
+
+        scale = tf.cast(self.num_data, settings.float_type)
+        scale /= tf.cast(tf.shape(self.X)[0], settings.float_type)  # minibatch size
+        return L * scale - KL
 
     #Credits to gpflow dev team
     @autoflow((settings.float_type, [None, None]), (tf.int32, []))
