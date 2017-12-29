@@ -6,7 +6,7 @@ import numpy as np
 from gpflow import settings
 
 from gpflow.conditionals import conditional
-from gpflow.decors import params_as_tensors, autoflow
+from gpflow.decors import params_as_tensors, autoflow, defer_build
 from gpflow.kullback_leiblers import gauss_kl
 from gpflow.mean_functions import Linear, Zero
 from gpflow.params import Parameter, Parameterized, ParamList
@@ -18,6 +18,7 @@ class Layer(Parameterized):
     The basic layer class. Handles input_dim and output_dim.
     """
 
+    @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel,
                  mean_function=None, name=None):
         """
@@ -105,6 +106,7 @@ def find_weights(input_dim, output_dim, X):
     return W
 
 class InputLayer(Layer):
+    @defer_build()
     def __init__(self, input_dim, output_dim, Z, num_inducing, kernel,
                  mean_function=None, name=None):
         """
@@ -124,6 +126,7 @@ class InputLayer(Layer):
         self.Z = Parameter(Z)
 
 
+    @defer_build()
     def initialize_forward(self, X):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
@@ -142,6 +145,7 @@ class InputLayer(Layer):
 
 
 class HiddenLayer(Layer):
+    @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel,
                  mean_function=None, name=None):
         """
@@ -154,9 +158,7 @@ class HiddenLayer(Layer):
         super(HiddenLayer, self).__init__(input_dim, output_dim, num_inducing, kernel,
                                           mean_function, name)
 
-        self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)))
-
-
+    @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
@@ -165,22 +167,23 @@ class HiddenLayer(Layer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        self.Z = Z
+        self.Z = Parameter(Z)
 
         Z_running = self.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
 
-        self.mean_function = Linear(A=W)
+        if isinstance(self.mean_function, Linear):
+            self.mean_function = Linear(A=W)
 
         return Z_running, X_running
 
 class OutputLayer(Layer):
     ###Maybe add __init__ with Y to do assertion on output_dim
-    def initialize_forward(self, X, Z, mean_function):
+    @defer_build()
+    def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
 
         self.Z = Parameter(Z)
-        self.mean_function = mean_function
