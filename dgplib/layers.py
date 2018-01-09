@@ -33,7 +33,8 @@ class Layer(Parameterized):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_inducing = num_inducing
-        self.Z = None
+        self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
+                           fix_shape=False)
 
         if isinstance(kernel, list):
             self.kernel = ParamList(kernel)
@@ -123,7 +124,7 @@ class InputLayer(Layer):
         assert Z.shape[0] == self.num_inducing
         assert Z.shape[1] == self.input_dim
 
-        self.Z = Parameter(Z)
+        self.Z.assign(Z)
 
 
     @defer_build()
@@ -167,13 +168,13 @@ class HiddenLayer(Layer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        self.Z = Parameter(Z)
+        self.Z.assign(Z)
 
         Z_running = self.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
-            self.mean_function = Linear(A=W)
+            self.mean_function.A =W
 
         return Z_running, X_running
 
@@ -186,4 +187,4 @@ class OutputLayer(Layer):
         forward
         """
 
-        self.Z = Parameter(Z)
+        self.Z.assign(Z)
