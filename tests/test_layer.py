@@ -110,6 +110,9 @@ class HiddenLayerTest(unittest.TestCase):
         with self.subTest():
             self.assertTrue(np.allclose(X_running, self.X))
 
+        with self.subTest():
+            self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+
 class OutputLayerTest(unittest.TestCase):
     def setUp(self):
         self.rng = np.random.RandomState(42)
