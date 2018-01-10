@@ -60,7 +60,9 @@ class DSDGP(Model):
         self.num_samples = num_samples
         self.D_Y = num_latent_Y or Y.shape[1]
 
-        self.dims = layers.get_dims() #Not implemented yet
+        self.layers = layers
+
+        self.dims = self.layers.get_dims()
 
         self.likelihood = likelihood
 
