@@ -21,8 +21,8 @@ class Sequential(Parameterized):
         if layers:
             assert isinstance(layers[0], InputLayer), """First layer must be an
             instance of InputLayer"""
-            assert isinstance(layers[-1], OutputLayer), """Final layer must be an
-            instance of OutputLayer"""
+            # assert isinstance(layers[-1], OutputLayer), """Final layer must be an
+            # instance of OutputLayer"""
 
             for layer in layers:
                 self.add(layer)
@@ -35,13 +35,13 @@ class Sequential(Parameterized):
         """
         assert isinstance(layer, Layer)
 
-        if isinstance(self.layers[-1], OutputLayer):
-            raise ValueError('Cannot add layers after an Output Layer')
-
         if not self.layers:
             assert isinstance(layer, InputLayer), """First layer must be an
             Input Layer"""
         else:
+            if isinstance(self.layers[-1], OutputLayer):
+                raise ValueError('Cannot add layers after an Output Layer')
+
             assert self.layers[-1].output_dim == layer.input_dim, """Input
             dimensions of layer must be equal to the output dimensions of the
             preceding layer"""
