@@ -109,12 +109,11 @@ def find_weights(input_dim, output_dim, X):
 
 class InputLayer(Layer):
     @defer_build()
-    def __init__(self, input_dim, output_dim, Z, num_inducing, kernel,
+    def __init__(self, input_dim, output_dim, num_inducing, kernel,
                  mean_function=None, name=None):
         """
         input_dim is an integer
         output_dim is an integer
-        Z is a matrix of inducing inputs
         num_inducing is the number of inducing inputs
         kernel is a kernel object (or list of kernel objects)
         """
@@ -122,14 +121,9 @@ class InputLayer(Layer):
         super(InputLayer, self).__init__(input_dim, output_dim, num_inducing,
                                          kernel, mean_function, name)
 
-        assert Z.shape[0] == self.num_inducing
-        assert Z.shape[1] == self.input_dim
-
-        self.Z.assign(Z)
-
 
     @defer_build()
-    def initialize_forward(self, X):
+    def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
@@ -137,13 +131,13 @@ class InputLayer(Layer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        Z_running = self.Z.value.copy().dot(W)
+        Z_running = Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
 
-        return Z_running, X_running
+        return X_running, Z_running
 
 
 class HiddenLayer(Layer):
@@ -177,7 +171,7 @@ class HiddenLayer(Layer):
         if isinstance(self.mean_function, Linear):
             self.mean_function.A =W
 
-        return Z_running, X_running
+        return X_running, Z_running
 
 class OutputLayer(Layer):
     ###Maybe add __init__ with Y to do assertion on output_dim
