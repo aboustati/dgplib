@@ -77,7 +77,7 @@ class DSDGP(Model):
 
     #Credits to Hugh Salimbeni
     @params_as_tensors
-    def propagate(self, Xnew, full_cov=False, num_samples=1):
+    def _propagate(self, Xnew, full_cov=False, num_samples=1):
         """
         Propagate points Xnew through DGP cascade.
         """
@@ -95,19 +95,18 @@ class DSDGP(Model):
 
     @params_as_tensors
     def _build_predict(self, Xnew, full_cov=False, num_samples=1):
-        Fs, Fmeans, Fvars = self.propagate(Xnew, full_cov, num_samples)
+        Fs, Fmeans, Fvars = self._propagate(Xnew, full_cov, num_samples)
         return Fmeans[-1], Fvars[-1]
 
     #Credits to Hugh Salimbeni
     @params_as_tensors
-    def build_likelihood(self):
+    def _build_likelihood(self):
         """
         Gives variational bound on the model likelihood.
         """
 
-        Fmean, Fvar = self.build_predict(self.X, full_cov=False, num_samples=self.num_samples)
+        Fmean, Fvar = self._build_predict(self.X, full_cov=False, num_samples=self.num_samples)
 
-        S, N, D = shape_as_list(Fmean)
         Y = tile_over_samples(self.Y, self.num_samples)
 
         f = lambda a: self.likelihood.variational_expectations(a[0], a[1], a[2])
@@ -151,7 +150,7 @@ class DSDGP(Model):
         Compute the mean and variance of the latent function(s) for for all
         layers at the points Xnew.
         """
-        return self.propagate(Xnew, num_samples)
+        return self._propagate(Xnew, num_samples)
 
     #Credits to Hugh Salimbeni
     @autoflow((settings.float_type, [None, None]))
@@ -160,7 +159,7 @@ class DSDGP(Model):
         Compute the mean and covariance matrix of the latent function(s) for
         all layers at the points Xnew.
         """
-        return self.propagate(Xnew, full_cov=True)
+        return self._propagate(Xnew, full_cov=True)
 
     #Credits to gpflow dev team
     @autoflow((settings.float_type, [None, None]), (tf.int32, []))
