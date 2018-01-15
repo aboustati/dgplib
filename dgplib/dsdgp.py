@@ -5,10 +5,10 @@ from gpflow import settings
 
 from gpflow.decors import autoflow, defer_build, params_as_tensors
 from gpflow.mean_functions import Zero
-from gpflow.model import Model
+from gpflow.models import Model
 from gpflow.params import DataHolder, Minibatch
 
-from .utils import normal_sample, shape_as_list, tile_over_samples
+from .utils import normal_sample, tile_over_samples
 
 class DSDGP(Model):
     """
