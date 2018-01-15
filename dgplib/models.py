@@ -16,6 +16,7 @@ class Sequential(Parameterized):
 
         super(Sequential, self).__init__(name=name)
 
+        self._initialized = False #Change into property later
         self.layers = ParamList([])
 
         if layers:
@@ -34,6 +35,9 @@ class Sequential(Parameterized):
         - layer is an instance of an object that inherits from Layer
         """
         assert isinstance(layer, Layer)
+
+        if self._initialized:
+            raise ValueError('Cannot add more layers to initialized model')
 
         if not self.layers:
             assert isinstance(layer, InputLayer), """First layer must be an
@@ -56,3 +60,10 @@ class Sequential(Parameterized):
 
         return dims
 
+    def initialize(self, X, Z):
+        X_running, Z_running = self.layers[0].initialize_forward(X, Z)
+        for layer in self.layers[1:]:
+            X_running, Z_running = layer.initialize_forward(X_running,
+                                                            Z_running)
+        print('Model Initialized')
+        self._initialized = True
