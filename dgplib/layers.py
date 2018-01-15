@@ -61,7 +61,7 @@ class Layer(Parameterized):
         def f_conditional(Xnew, full_cov=False):
             mean, var = conditional(Xnew=Xnew,
                                     X=self.Z,
-                                    kern=self.kern,
+                                    kern=self.kernel,
                                     f=self.q_mu,
                                     q_sqrt=self.q_sqrt,
                                     full_cov=full_cov,
@@ -76,10 +76,11 @@ class Layer(Parameterized):
                                                   settings.tf_float))
                 return tf.stack(mean), tf.stack(var)
             else:
-                S, N, D = shape_as_list(Xnew)
-                X_flat = tf.reshape(Xnew, [S*N, D])
+                #S, N, D = shape_as_list(Xnew)
+                s = tf.shape(Xnew)
+                X_flat = tf.reshape(Xnew, [s[0]*s[1], s[2]])
                 mean, var = f_conditional(X_flat)
-                return [tf.reshape(m, [S, N, -1]) for m in [mean, var]]
+                return [tf.reshape(m, [s[0], s[1], -1]) for m in [mean, var]]
 
         if stochastic:
             mean, var = multisample_conditional(Xnew, full_cov)
