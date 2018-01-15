@@ -12,13 +12,14 @@ from gpflow import settings
 jitter = settings.numerics.jitter_level
 float_type = settings.dtypes.float_type
 
-def tile_over_samples(X, S): 
-    ones =  tf.ones([S, ] + [1, ] *  X.get_shape().ndims, dtype=X.dtype)
-    return tf.expand_dims(X, 0) * ones
+def tile_over_samples(X, S):
+    dims_as_tensor = tf.tile([1], tf.expand_dims(tf.rank(X), axis=0))
+    multiples = tf.concat([[S], dims_as_tensor], axis=0)
+    return tf.tile(tf.expand_dims(X, 0), multiples)
 
 def shape_as_list(X):
     s = tf.shape(X)
-    return [s[i] for i in range(X.get_shape().ndims)]
+    return tf.unstack(s)
 
 def normal_sample(mean, var, full_cov=False):
     if full_cov is False:
