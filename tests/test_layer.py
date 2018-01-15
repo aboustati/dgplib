@@ -8,6 +8,8 @@ import unittest
 import numpy as np
 
 from dgplib.layers import find_weights, InputLayer, HiddenLayer, OutputLayer
+
+from gpflow.decors import defer_build
 from gpflow.kernels import White, RBF
 from gpflow.mean_functions import Linear
 from gpflow.test_util import GPflowTestCase
@@ -48,6 +50,7 @@ class WeightsTest(unittest.TestCase):
             self.assertTrue(np.allclose(W, V))
 
 class InputLayerTest(unittest.TestCase):
+    @defer_build()
     def setUp(self):
         self.rng = np.random.RandomState(42)
         kernel = RBF(2)
@@ -80,6 +83,7 @@ class InputLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(X_running, self.X))
 
 class HiddenLayerTest(unittest.TestCase):
+    @defer_build()
     def setUp(self):
         self.rng = np.random.RandomState(42)
         kernel = RBF(2)
@@ -114,6 +118,7 @@ class HiddenLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
 
 class OutputLayerTest(unittest.TestCase):
+    @defer_build()
     def setUp(self):
         self.rng = np.random.RandomState(42)
         kernel = RBF(2)

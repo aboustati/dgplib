@@ -5,6 +5,7 @@ import numpy as np
 from dgplib.layers import InputLayer, HiddenLayer, OutputLayer
 from dgplib.models import Sequential
 
+from gpflow.decors import defer_build
 from gpflow.kernels import RBF
 from gpflow.params import ParamList
 
@@ -13,6 +14,7 @@ class SequentialTest(unittest.TestCase):
         seq = Sequential()
         self.assertIsInstance(seq.layers, ParamList)
 
+    @defer_build()
     def test_initialization_with_list(self):
         Z = np.zeros((10,2))
         input_layer = InputLayer(2, 2, Z, 10, RBF(2))
@@ -41,6 +43,7 @@ class SequentialTest(unittest.TestCase):
             # with self.assertRaises(AssertionError):
                 # seq = Sequential(layer_list)
 
+    @defer_build()
     def test_add_to_empty(self):
         Z = np.zeros((10,2))
         input_layer = InputLayer(2, 2, Z, 10, RBF(2))
@@ -83,6 +86,7 @@ class SequentialTest(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 seq.add(output_layer)
 
+    @defer_build()
     def test_add_to_full(self):
         Z = np.zeros((10,2))
         input_layer = InputLayer(2, 2, Z, 10, RBF(2))
@@ -120,6 +124,7 @@ class SequentialTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 seq.add(hidden_layer_1)
 
+    @defer_build()
     def test_dims(self):
         Z = np.zeros((10,2))
         input_layer = InputLayer(2, 3, Z, 10, RBF(2))
