@@ -2,6 +2,10 @@
 This document details some of the progress made on the library
 
 ## TODO
+- [ ] Add tests from DSDGP
+- [ ] Add method to initialize model params
+- [ ] Test DSDGP on toy example (add to docs)
+- [ ] Look into multitask learning extensions
 
 ## Design Choices
 * Sequential can be intialised with a partial list of layers, e.g. `[InputLayer,
