@@ -84,7 +84,7 @@ class DSDGP(Model):
         Fs = [tile_over_samples(Xnew, num_samples), ]
         Fmeans, Fvars = [], []
         for layer in self.layers.layers:
-            mean, var = layer._build_predict(Xnew, full_cov, stochastic=True)
+            mean, var = layer._build_predict(Fs[-1], full_cov, stochastic=True)
             F = normal_sample(mean, var, full_cov=full_cov)
 
             Fs.append(F)
