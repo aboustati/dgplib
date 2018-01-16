@@ -27,7 +27,7 @@ class TestDSDGP(unittest.TestCase):
                  + np.random.randn(*self.X.shape)*1e-2
 
     def test_contructor(self):
-        input_layer = InputLayer(input_dim=1, output_dim=1, Z=self.Z,
+        input_layer = InputLayer(input_dim=1, output_dim=1,
                                  num_inducing=self.M, kernel=RBF(1))
         output_layer = OutputLayer(input_dim=1, output_dim=1,
                                    num_inducing=self.M, kernel=RBF(1))

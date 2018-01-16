@@ -63,7 +63,6 @@ class InputLayerTest(unittest.TestCase):
 
         self.layer = InputLayer(input_dim=input_dim,
                                 output_dim=output_dim,
-                                Z=self.Z,
                                 num_inducing=num_inducing,
                                 kernel=kernel,
                                 mean_function=mean_function)
@@ -71,13 +70,16 @@ class InputLayerTest(unittest.TestCase):
         self.X = self.rng.randn(10,2)
 
     def test_initialize_forward(self):
-        Z_running, X_running = self.layer.initialize_forward(self.X)
+        X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
 
         with self.subTest():
             self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
 
         with self.subTest():
            self.assertTrue(np.allclose(Z_running, self.Z))
+
+        with self.subTest():
+           self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
 
         with self.subTest():
             self.assertTrue(np.allclose(X_running, self.X))
@@ -103,7 +105,7 @@ class HiddenLayerTest(unittest.TestCase):
         self.X = self.rng.randn(10, 2)
 
     def test_initialize_forward(self):
-        Z_running, X_running = self.layer.initialize_forward(self.X, self.Z)
+        X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
 
         with self.subTest():
             self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))

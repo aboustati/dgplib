@@ -16,8 +16,7 @@ class SequentialTest(unittest.TestCase):
 
     @defer_build()
     def test_initialization_with_list(self):
-        Z = np.zeros((10,2))
-        input_layer = InputLayer(2, 2, Z, 10, RBF(2))
+        input_layer = InputLayer(2, 2, 10, RBF(2))
         hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
         hidden_layer_2 = HiddenLayer(2, 2, 10, RBF(2))
         output_layer = OutputLayer(2, 1, 10, RBF(2))
@@ -45,8 +44,7 @@ class SequentialTest(unittest.TestCase):
 
     @defer_build()
     def test_add_to_empty(self):
-        Z = np.zeros((10,2))
-        input_layer = InputLayer(2, 2, Z, 10, RBF(2))
+        input_layer = InputLayer(2, 2, 10, RBF(2))
         hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
         output_layer = OutputLayer(2, 1, 10, RBF(2))
 
@@ -88,8 +86,7 @@ class SequentialTest(unittest.TestCase):
 
     @defer_build()
     def test_add_to_full(self):
-        Z = np.zeros((10,2))
-        input_layer = InputLayer(2, 2, Z, 10, RBF(2))
+        input_layer = InputLayer(2, 2, 10, RBF(2))
         hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
         hidden_layer_2 = HiddenLayer(2, 2, 10, RBF(2))
         hidden_layer_3 = HiddenLayer(3, 2, 10, RBF(3))
@@ -126,8 +123,7 @@ class SequentialTest(unittest.TestCase):
 
     @defer_build()
     def test_dims(self):
-        Z = np.zeros((10,2))
-        input_layer = InputLayer(2, 3, Z, 10, RBF(2))
+        input_layer = InputLayer(2, 3, 10, RBF(2))
         hidden_layer_1 = HiddenLayer(3, 2, 10, RBF(2))
         hidden_layer_2 = HiddenLayer(2, 1, 10, RBF(2))
         hidden_layer_3 = HiddenLayer(1, 2, 10, RBF(3))
