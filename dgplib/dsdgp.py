@@ -60,7 +60,7 @@ class DSDGP(Model):
         self.num_samples = num_samples
         self.D_Y = num_latent_Y or Y.shape[1]
 
-        layers.initialize_params(X, Z)#Maybe add initialization methid for model
+        layers.initialize_params(X, Z)#Maybe add initialization method for model
         if layers._initialized == True:
             self.layers = layers
         else:
@@ -135,7 +135,7 @@ class DSDGP(Model):
         Compute the mean and variance of the latent function(s) for the final
         layer at the points Xnew.
         """
-        return self._build_predict(Xnew, num_samples)
+        return self._build_predict(Xnew, full_cov=False, num_samples=num_samples)
 
     #Credits to gpflow dev team
     @autoflow((settings.float_type, [None, None]))

@@ -34,7 +34,7 @@ class Layer(Parameterized):
         self.output_dim = output_dim
         self.num_inducing = num_inducing
         self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
-                           fix_shape=False)
+                           fix_shape=True)
 
         if isinstance(kernel, list):
             self.kernel = ParamList(kernel)
@@ -47,7 +47,7 @@ class Layer(Parameterized):
 
         self.q_mu = Parameter(np.zeros(shape))
 
-        q_sqrt = np.dstack([np.eye(self.num_inducing)
+        q_sqrt = np.vstack([np.expand_dims(np.eye(self.num_inducing), 0)
                             for _ in range(self.output_dim)])
         self.q_sqrt = Parameter(q_sqrt)
 
