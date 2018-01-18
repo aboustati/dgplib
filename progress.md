@@ -2,8 +2,8 @@
 This document details some of the progress made on the library
 
 ## TODO
-- [ ] Add tests from DSDGP
-- [ ] Add method to initialize model params
+- [x] Add tests from DSDGP
+- [x] Add method to initialize model params
 - [ ] Test DSDGP on toy example (add to docs)
 - [ ] Look into multitask learning extensions
 
@@ -16,3 +16,7 @@ layer structure, i.e. `OutputLayer` at the end?
 * ~~`InputLayer` takes an initial value for Z, maybe better to disallow this and
   add it to the model object instead~~
 * `Sequential` has an `_initialized` private attribute. Turn this into property.
+
+## Known Bugs
+* Prediction with full covariance doesn't work because of numerical issues
+* Optimisation does not work
