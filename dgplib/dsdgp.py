@@ -60,7 +60,11 @@ class DSDGP(Model):
         self.num_samples = num_samples
         self.D_Y = num_latent_Y or Y.shape[1]
 
-        self.layers = layers
+        layers.initialize_params(X, Z)#Maybe add initialization methid for model
+        if layers._initialized == True:
+            self.layers = layers
+        else:
+            raise ValueError("Layers were not initialized")
 
         self.dims = self.layers.get_dims()
 

@@ -135,3 +135,17 @@ class SequentialTest(unittest.TestCase):
         dims = seq.get_dims()
         reference = [(2,3), (3,2), (2,1), (1,2), (2,1)]
         self.assertEqual(dims, reference)
+
+    @defer_build()
+    def test_initialize_params(self):
+        input_layer = InputLayer(2, 2, 10, RBF(2))
+        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
+        output_layer = OutputLayer(2, 1, 10, RBF(2))
+
+        Z = np.ones((10, 2))
+        X = np.ones((100, 2))
+
+        seq = Sequential([input_layer, hidden_layer_1, output_layer])
+        seq.initialize_params(X, Z)
+
+        self.assertTrue(np.allclose(Z, seq.layers[0].Z.value))

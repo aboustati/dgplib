@@ -131,7 +131,9 @@ class InputLayer(Layer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        Z_running = Z.value.copy().dot(W)
+        self.Z.assign(Z)
+
+        Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
@@ -183,3 +185,4 @@ class OutputLayer(Layer):
         """
 
         self.Z.assign(Z)
+        return (None, None)

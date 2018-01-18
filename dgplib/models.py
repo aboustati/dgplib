@@ -63,7 +63,7 @@ class Sequential(Parameterized):
     def initialize_params(self, X, Z):
         X_running, Z_running = self.layers[0].initialize_forward(X, Z)
         for layer in self.layers[1:]:
-            X_running, Z_running = layer.initialize_forward(X_running,
-                                                            Z_running)
+            X_running, Z_running = layer.initialize_forward(X_running, Z_running)
+
         print('Model Parameters Initialized')
         self._initialized = True
