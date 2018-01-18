@@ -4,7 +4,9 @@ This document details some of the progress made on the library
 ## TODO
 - [x] Add tests from DSDGP
 - [x] Add method to initialize model params
-- [ ] Test DSDGP on toy example (add to docs)
+- [x] Test DSDGP on toy example (add to docs)
+- [ ] Test DSDGP and its optins further
+- [ ] Work on improving documentation
 - [ ] Look into multitask learning extensions
 
 ## Design Choices
@@ -19,4 +21,4 @@ layer structure, i.e. `OutputLayer` at the end?
 
 ## Known Bugs
 * Prediction with full covariance doesn't work because of numerical issues
-* Optimisation does not work
+* ~~Optimisation does not work~~
