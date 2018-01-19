@@ -22,3 +22,4 @@ layer structure, i.e. `OutputLayer` at the end?
 ## Known Bugs
 * Prediction with full covariance doesn't work because of numerical issues
 * ~~Optimisation does not work~~
+* Gpflow bug: methods decorated with `autoflow` do not take named arguments
