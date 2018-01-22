@@ -95,7 +95,7 @@ class DSDGP(Model):
             Fmeans.append(mean)
             Fvars.append(var)
 
-        return Fs[:1], Fmeans, Fvars
+        return Fs[1:], Fmeans, Fvars
 
     @params_as_tensors
     def _build_predict(self, Xnew, full_cov=False, num_samples=1):
