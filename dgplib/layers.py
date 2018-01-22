@@ -129,14 +129,13 @@ class InputLayer(Layer):
         forward
         """
 
-        W = find_weights(self.input_dim, self.output_dim, X)
-
         self.Z.assign(Z)
 
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
+            W = find_weights(self.input_dim, self.output_dim, X)
             self.mean_function.A = W
 
         return X_running, Z_running
@@ -163,14 +162,13 @@ class HiddenLayer(Layer):
         forward
         """
 
-        W = find_weights(self.input_dim, self.output_dim, X)
-
         self.Z.assign(Z)
 
         Z_running = self.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
+            W = find_weights(self.input_dim, self.output_dim, X)
             self.mean_function.A =W
 
         return X_running, Z_running
