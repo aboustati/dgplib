@@ -29,9 +29,9 @@ class TestDSDGP(unittest.TestCase):
 
     def test_contructor(self):
         input_layer = InputLayer(input_dim=1, output_dim=1,
-                                 num_inducing=self.M, kernel=RBF(1))
+                                 num_inducing=self.M, kernel=RBF(1)+White(1))
         output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=self.M, kernel=RBF(1))
+                                   num_inducing=self.M, kernel=RBF(1)+White(1))
 
         seq = Sequential([input_layer, output_layer])
 
@@ -40,6 +40,22 @@ class TestDSDGP(unittest.TestCase):
         except Exception as e:
             print(e)
             self.fail('DSDGP contructor fails')
+
+    def test_optimize(self):
+        input_layer = InputLayer(input_dim=1, output_dim=1,
+                                 num_inducing=self.M, kernel=RBF(1)+White(1))
+        output_layer = OutputLayer(input_dim=1, output_dim=1,
+                                   num_inducing=self.M, kernel=RBF(1)+White(1))
+
+        seq = Sequential([input_layer, output_layer])
+
+        model = DSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq, likelihood=Gaussian())
+        model.compile()
+        before = model.compute_log_likelihood()
+        opt = gpflow.train.AdamOptimizer(0.01)
+        opt.minimize(model, maxiter=100)
+        after = model.compute_log_likelihood()
+        self.assertGreaterEqual(after, before)
 
 class TestMethods(unittest.TestCase):
     def prepare(self):
