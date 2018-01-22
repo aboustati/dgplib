@@ -154,7 +154,7 @@ class DSDGP(Model):
         Compute the mean and variance of the latent function(s) for for all
         layers at the points Xnew.
         """
-        return self._propagate(Xnew, num_samples)
+        return self._propagate(Xnew, full_cov=False, num_samples=num_samples)
 
     #Credits to Hugh Salimbeni
     @autoflow((settings.float_type, [None, None]))
@@ -172,10 +172,11 @@ class DSDGP(Model):
         Produce samples from the posterior latent function(s) for the final
         layer at the points Xnew.
         """
-        mu, var = self._build_predict(Xnew, full_cov=True)
+        mu, var = self._build_predict(Xnew, full_cov=True, num_samples=1)
+        mu, var = mu[0,:,:], var[0,:,:]
         jitter = tf.eye(tf.shape(mu)[0], dtype=settings.float_type) * settings.numerics.jitter_level
         samples = []
-        for i in range(self.num_latent):
+        for i in range(self.D_Y):
             L = tf.cholesky(var[:, :, i] + jitter)
             shape = tf.stack([tf.shape(L)[0], num_samples])
             V = tf.random_normal(shape, dtype=settings.float_type)
