@@ -26,7 +26,7 @@ class MultikernelLayer(Layer):
         if output_dim != len(kernel_list):
             raise ValueError("Number of kernels must match output dimension")
 
-        super(Layer, self).__init__(input_dim=input_dim,
+        super(MultikernelLayer, self).__init__(input_dim=input_dim,
                                     output_dim=output_dim,
                                     num_inducing=num_inducing,
                                     kernel=kernel_list,
@@ -38,8 +38,8 @@ class MultikernelLayer(Layer):
 
         if not self._shared_Z:
             del self.Z
-            Z = Parameter(np.zeros((self.num_inducing, self.input_dim)), fix_shape=True)
-            self.Z = ParamList([Z.copy() for _ in range(self.num_kernels)])
+            Z = np.zeros((self.num_inducing, self.input_dim))
+            self.Z = ParamList([Parameter(Z.copy()) for _ in range(self.num_kernels)])
 
 
     @params_as_tensors
@@ -65,16 +65,16 @@ class MultikernelLayer(Layer):
             else:
                 Zs = self.Z
             for i, (k, Z) in enumerate(zip(self.kernel, Zs)):
-            m, v = conditional(Xnew=Xnew,
-                               X=Z,
-                               kern=k,
-                               f=self.q_mu[:,i][:,None],
-                               q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
-                               full_cov=full_cov,
-                               white=True)
+                m, v = conditional(Xnew=Xnew,
+                                   X=Z,
+                                   kern=k,
+                                   f=self.q_mu[:,i][:,None],
+                                   q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
+                                   full_cov=full_cov,
+                                   white=True)
 
-            mean = tf.stack(mean, axis=-1) #NxK
-            var = tf.stack(var, axis=-1) #NxK or NxNxK
+                mean = tf.stack(mean, axis=-1) #NxK
+                var = tf.stack(var, axis=-1) #NxK or NxNxK
 
             return mean + self.mean_function(Xnew), var
 
