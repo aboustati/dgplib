@@ -33,6 +33,12 @@ class MultikernelLayer(Layer):
                                     mean_function=mean_function,
                                     name=name)
 
+        self.num_kernels = len(kernel_list)
+
+        del self.Z
+        Z = Parameter(np.zeros((self.num_inducing, self.input_dim)), fix_shape=True)
+        self.Zs = ParamList([Z.copy() for _ in range(self.num_kernels)])
+
 
     @params_as_tensors
     def build_prior_KL(self, K):
@@ -52,9 +58,9 @@ class MultikernelLayer(Layer):
         def f_conditional(Xnew, full_cov=False):
             mean = []
             var = []
-            for i, k in enumerate(self.kernel):
+            for i, (k, Z) in enumerate(zip(self.kernel, self.Zs)):
             m, v = conditional(Xnew=Xnew,
-                               X=self.Z,
+                               X=Z,
                                kern=k,
                                f=self.q_mu[:,i][:,None],
                                q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
@@ -110,7 +116,8 @@ class MultikernelInputLayer(MultikernelLayer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        self.Z.assign(Z)
+        for Z_current in self.Zs:
+            Z_current.assign(Z)
 
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
@@ -148,7 +155,8 @@ class MultikernelHiddenLayer(MultikernelLayer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        self.Z.assign(Z)
+        for Z_current in self.Zs:
+            Z_current.assign(Z)
 
         Z_running = self.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
@@ -166,5 +174,7 @@ class MultikernelOutputLayer(Layer):
         forward
         """
 
-        self.Z.assign(Z)
+        for Z_current in self.Zs:
+            Z_current.assign(Z)
+
         return (None, None)
