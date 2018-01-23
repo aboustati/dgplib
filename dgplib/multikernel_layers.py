@@ -14,7 +14,7 @@ from gpflow.params import Parameter, Parameterized, ParamList
 from .layers import Layer, find_weights
 from .utils import shape_as_list
 
-class MultioutputLayer(Layer):
+class MultikernelLayer(Layer):
     """
     Inherits from Layer class. Can handle outputs from different priors.
     """
@@ -86,7 +86,7 @@ class MultioutputLayer(Layer):
 
         return mean, var
 
-class MutioutputInputLayer(MutioutputLayer):
+class MultikernelInputLayer(MultikernelLayer):
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
                  mean_function=None, name=None):
@@ -97,7 +97,7 @@ class MutioutputInputLayer(MutioutputLayer):
         kernel is a kernel object (or list of kernel objects)
         """
 
-        super(MutioutputInputLayer, self).__init__(input_dim, output_dim, num_inducing,
+        super(MultikernelInputLayer, self).__init__(input_dim, output_dim, num_inducing,
                                          kernel_list, mean_function, name)
 
 
@@ -121,7 +121,7 @@ class MutioutputInputLayer(MutioutputLayer):
         return X_running, Z_running
 
 
-class MutioutputHiddenLayer(MutioutputLayer):
+class MultikernelHiddenLayer(MultikernelLayer):
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
                  mean_function=None, name=None):
@@ -132,7 +132,7 @@ class MutioutputHiddenLayer(MutioutputLayer):
         kernel_list is list of kernel objects
         """
 
-        super(MultioutputHiddenLayer, self).__init__(input_dim,
+        super(MultikernelHiddenLayer, self).__init__(input_dim,
                                                      output_dim,
                                                      num_inducing,
                                                      kernel_list,
@@ -158,7 +158,7 @@ class MutioutputHiddenLayer(MutioutputLayer):
 
         return X_running, Z_running
 
-class MultioutputOutputLayer(Layer):
+class MultikernelOutputLayer(Layer):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
