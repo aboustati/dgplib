@@ -21,7 +21,7 @@ class MultikernelLayer(Layer):
 
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
-                 mean_function=None, name=None):
+                 share_Z=False, mean_function=None, name=None):
 
         if output_dim != len(kernel_list):
             raise ValueError("Number of kernels must match output dimension")
@@ -34,10 +34,12 @@ class MultikernelLayer(Layer):
                                     name=name)
 
         self.num_kernels = len(kernel_list)
+        self._shared_Z = share_Z
 
-        del self.Z
-        Z = Parameter(np.zeros((self.num_inducing, self.input_dim)), fix_shape=True)
-        self.Zs = ParamList([Z.copy() for _ in range(self.num_kernels)])
+        if not self._shared_Z:
+            del self.Z
+            Z = Parameter(np.zeros((self.num_inducing, self.input_dim)), fix_shape=True)
+            self.Z = ParamList([Z.copy() for _ in range(self.num_kernels)])
 
 
     @params_as_tensors
@@ -58,7 +60,11 @@ class MultikernelLayer(Layer):
         def f_conditional(Xnew, full_cov=False):
             mean = []
             var = []
-            for i, (k, Z) in enumerate(zip(self.kernel, self.Zs)):
+            if self._shared_Z:
+                Zs = [self.Z for _ in range(self.num_kernels)]
+            else:
+                Zs = self.Z
+            for i, (k, Z) in enumerate(zip(self.kernel, Zs)):
             m, v = conditional(Xnew=Xnew,
                                X=Z,
                                kern=k,
@@ -116,8 +122,11 @@ class MultikernelInputLayer(MultikernelLayer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        for Z_current in self.Zs:
-            Z_current.assign(Z)
+        if self._shared_Z:
+            self.Z.assign(Z)
+        else:
+            for Z_current in self.Z:
+                Z_current.assign(Z)
 
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
@@ -155,10 +164,13 @@ class MultikernelHiddenLayer(MultikernelLayer):
 
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        for Z_current in self.Zs:
-            Z_current.assign(Z)
+        if self._shared_Z:
+            self.Z.assign(Z)
+        else:
+            for Z_current in self.Z:
+                Z_current.assign(Z)
 
-        Z_running = self.Z.value.copy().dot(W)
+        Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if isinstance(self.mean_function, Linear):
@@ -174,7 +186,10 @@ class MultikernelOutputLayer(Layer):
         forward
         """
 
-        for Z_current in self.Zs:
-            Z_current.assign(Z)
+        if self._shared_Z:
+            self.Z.assign(Z)
+        else:
+            for Z_current in self.Z:
+                Z_current.assign(Z)
 
         return (None, None)
