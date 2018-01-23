@@ -100,20 +100,6 @@ class MultikernelLayer(Layer):
 
 class MultikernelInputLayer(MultikernelLayer):
     @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
-
-        super(MultikernelInputLayer, self).__init__(input_dim, output_dim, num_inducing,
-                                         kernel_list, mean_function, name)
-
-
-    @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
@@ -138,23 +124,6 @@ class MultikernelInputLayer(MultikernelLayer):
 
 
 class MultikernelHiddenLayer(MultikernelLayer):
-    @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel_list is list of kernel objects
-        """
-
-        super(MultikernelHiddenLayer, self).__init__(input_dim,
-                                                     output_dim,
-                                                     num_inducing,
-                                                     kernel_list,
-                                                     mean_function,
-                                                     name)
-
     @defer_build()
     def initialize_forward(self, X, Z):
         """
