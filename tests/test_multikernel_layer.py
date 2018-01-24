@@ -91,6 +91,28 @@ class MultikernelLayerTest(unittest.TestCase):
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 20, 3))
 
+    def test_build_predict_shared_Z(self):
+        # layer is now with shared Z
+        X, Z, _, layer, kern_list = self.prepare()
+        layer_as_model = self.prepare_autoflow_functions(layer)
+        layer_as_model.compile()
+        #Variance only and non-stochastic
+        with self.subTest():
+            m, v = layer_as_model.predict(X)
+            self.assertEqual(m.shape, (20, 3))
+            self.assertEqual(v.shape, (20, 3))
+        with self.subTest():
+            m, v = layer_as_model.predict_full_cov(X)
+            self.assertEqual(m.shape, (20, 3))
+            self.assertEqual(v.shape, (20, 20, 3))
+        with self.subTest():
+            m, v = layer_as_model.predict_stochastic(X)
+            self.assertEqual(m.shape, (1, 20, 3))
+            self.assertEqual(v.shape, (1, 20, 3))
+        with self.subTest():
+            m, v = layer_as_model.predict_full_cov_stochastic(X)
+            self.assertEqual(m.shape, (1, 20, 3))
+            self.assertEqual(v.shape, (1, 20, 20, 3))
 
 # class InputLayerTest(unittest.TestCase):
     # @defer_build()
