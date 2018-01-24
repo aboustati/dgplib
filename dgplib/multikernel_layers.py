@@ -72,9 +72,11 @@ class MultikernelLayer(Layer):
                                    q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
                                    full_cov=full_cov,
                                    white=True)
+                mean.append(m)
+                var.append(v)
 
-                mean = tf.stack(mean, axis=-1) #NxK
-                var = tf.stack(var, axis=-1) #NxK or NxNxK
+            mean = tf.concat(mean, axis=-1) #NxK
+            var = tf.concat(var, axis=-1) #NxK or NxNxK
 
             return mean + self.mean_function(Xnew), var
 
@@ -94,7 +96,7 @@ class MultikernelLayer(Layer):
         if stochastic:
             mean, var = multisample_conditional(Xnew, full_cov)
         else:
-            mean, var = conditional(Xnew, full_cov)
+            mean, var = f_conditional(Xnew, full_cov)
 
         return mean, var
 
