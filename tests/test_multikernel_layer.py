@@ -11,9 +11,11 @@ import tensorflow as tf
 from dgplib.layers import find_weights, Layer, InputLayer, HiddenLayer, OutputLayer
 from dgplib.multikernel_layers import MultikernelLayer
 
-from gpflow.decors import defer_build, autoflow
+from gpflow.decors import defer_build, autoflow, params_as_tensors
 from gpflow.kernels import White, RBF
 from gpflow.mean_functions import Linear
+from gpflow.models import Model
+from gpflow.params import Parameter
 from gpflow.test_util import GPflowTestCase
 
 class MultikernelLayerTest(unittest.TestCase):
@@ -35,47 +37,57 @@ class MultikernelLayerTest(unittest.TestCase):
 
         return X, Z , layer, layer_shared_Z, kern_list
 
+    @defer_build()
     def prepare_autoflow_functions(self, layer):
-        @autoflow((tf.float32, [None, None]))
-        def predict(Xnew):
-            return layer._build_predict(Xnew, stochastic=False)
+        class LayerAsModel(Model):
+            def __init__(self, layer):
+                super(LayerAsModel, self).__init__()
+                self.layer = layer
+                self.a = Parameter(3.)
 
-        @autoflow((tf.float32, [None, None]))
-        def predict_full_cov(Xnew):
-            return layer._build_predict(Xnew, full_cov=True, stochastic=False)
+            @params_as_tensors
+            def _build_likelihood(self):
+                return -tf.square(self.a)
 
-        @autoflow((tf.float32, [None, None]))
-        def predict_stochastic(Xnew):
-            Xnew = Xnew[None,:,:]
-            return layer._build_predict(Xnew, stochastic=True)
+            @autoflow((tf.float64, [None, None]))
+            def predict(self, Xnew):
+                return self.layer._build_predict(Xnew, stochastic=False)
 
-        @autoflow((tf.float32, [None, None]))
-        def predict_full_cov_stochastic(Xnew):
-            Xnew = Xnew[None,:,:]
-            return layer._build_predict(Xnew, full_cov=True, stochastic=True)
+            @autoflow((tf.float64, [None, None]))
+            def predict_full_cov(self, Xnew):
+                return self.layer._build_predict(Xnew, full_cov=True, stochastic=False)
 
-        return predict, predict_full_cov, predict_stochastic, predict_full_cov_stochastic
+            @autoflow((tf.float64, [None, None]))
+            def predict_stochastic(self, Xnew):
+                Xnew = Xnew[None,:,:]
+                return self.layer._build_predict(Xnew, stochastic=True)
+
+            @autoflow((tf.float64, [None, None]))
+            def predict_full_cov_stochastic(self, Xnew):
+                Xnew = Xnew[None,:,:]
+                return self.layer._build_predict(Xnew, full_cov=True, stochastic=True)
+
+        return LayerAsModel(layer)
 
     def test_build_predict_unshared_Z(self):
         X, Z, layer, _, kern_list = self.prepare()
-        layer.compile()
-        predict, predict_full_cov, predict_stochastic, \
-        predict_full_cov_stochastic = self.prepare_autoflow_functions(layer)
+        layer_as_model = self.prepare_autoflow_functions(layer)
+        layer_as_model.compile()
         #Variance only and non-stochastic
         with self.subTest():
-            m, v = predict(X)
+            m, v = layer_as_model.predict(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 3))
         with self.subTest():
-            m, v = predict_full_cov(X)
+            m, v = layer_as_model.predict_full_cov(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 20, 3))
         with self.subTest():
-            m, v = predict_stochastic(X)
+            m, v = layer_as_model.predict_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 3))
         with self.subTest():
-            m, v = predict(X)
+            m, v = layer_as_model.predict_full_cov_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 20, 3))
 
