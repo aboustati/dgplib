@@ -109,20 +109,6 @@ def find_weights(input_dim, output_dim, X):
 
 class InputLayer(Layer):
     @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
-
-        super(InputLayer, self).__init__(input_dim, output_dim, num_inducing,
-                                         kernel, mean_function, name)
-
-
-    @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
@@ -144,19 +130,6 @@ class InputLayer(Layer):
 
 class HiddenLayer(Layer):
     @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
-
-        super(HiddenLayer, self).__init__(input_dim, output_dim, num_inducing, kernel,
-                                          mean_function, name)
-
-    @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
@@ -176,7 +149,6 @@ class HiddenLayer(Layer):
         return X_running, Z_running
 
 class OutputLayer(Layer):
-    ###Maybe add __init__ with Y to do assertion on output_dim
     @defer_build()
     def initialize_forward(self, X, Z):
         """
