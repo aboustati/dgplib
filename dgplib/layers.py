@@ -85,7 +85,7 @@ class Layer(Parameterized):
         if stochastic:
             mean, var = multisample_conditional(Xnew, full_cov)
         else:
-            mean, var = conditional(Xnew, full_cov)
+            mean, var = f_conditional(Xnew, full_cov)
 
         return mean, var
 
