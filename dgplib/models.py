@@ -3,6 +3,7 @@ import tensorflow as tf
 
 from gpflow.params import Parameterized, ParamList
 from .layers import Layer, InputLayer, OutputLayer, HiddenLayer
+from .multikernel_layers import MultikernelLayer, MultikernelInputLayer, MultikernelOutputLayer, MultikernelHiddenLayer
 
 class Sequential(Parameterized):
     """
@@ -20,13 +21,29 @@ class Sequential(Parameterized):
         self.layers = ParamList([])
 
         if layers:
-            assert isinstance(layers[0], InputLayer), """First layer must be an
-            instance of InputLayer"""
-            # assert isinstance(layers[-1], OutputLayer), """Final layer must be an
-            # instance of OutputLayer"""
-
             for layer in layers:
                 self.add(layer)
+
+    def _valid_input(self, layer):
+        assert isinstance(layer, Layer)
+
+        if self._initialized:
+            raise ValueError('Cannot add more layers to initialized model')
+
+        if not self.layers:
+            #Temporary Hack
+            assert isinstance(layer, InputLayer) or isinstance(layer,
+                                                               MultikernelInputLayer), """First layer must be an
+            Input Layer"""
+        else:
+            #Temporary Hack
+            if isinstance(self.layers[-1], OutputLayer) or \
+            isinstance(self.layers[-1], MultikernelOutputLayer):
+                raise ValueError('Cannot add layers after an Output Layer')
+
+            assert self.layers[-1].output_dim == layer.input_dim, """Input
+            dimensions of layer must be equal to the output dimensions of the
+            preceding layer"""
 
     def add(self, layer):
         """
@@ -34,22 +51,7 @@ class Sequential(Parameterized):
 
         - layer is an instance of an object that inherits from Layer
         """
-        assert isinstance(layer, Layer)
-
-        if self._initialized:
-            raise ValueError('Cannot add more layers to initialized model')
-
-        if not self.layers:
-            assert isinstance(layer, InputLayer), """First layer must be an
-            Input Layer"""
-        else:
-            if isinstance(self.layers[-1], OutputLayer):
-                raise ValueError('Cannot add layers after an Output Layer')
-
-            assert self.layers[-1].output_dim == layer.input_dim, """Input
-            dimensions of layer must be equal to the output dimensions of the
-            preceding layer"""
-
+        self._valid_input(layer)
         self.layers.append(layer)
 
     def get_dims(self):
