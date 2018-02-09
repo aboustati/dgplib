@@ -138,13 +138,13 @@ class DSDGP(Model):
         return self._build_predict(Xnew, full_cov=False, num_samples=num_samples)
 
     #Credits to gpflow dev team
-    @autoflow((settings.float_type, [None, None]))
-    def predict_f_full_cov(self, Xnew):
+    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
+    def predict_f_full_cov(self, Xnew, num_samples):
         """
         Compute the mean and covariance matrix of the latent function(s) for
         the final layer at the points Xnew.
         """
-        return self._build_predict(Xnew, full_cov=True)
+        return self._build_predict(Xnew, full_cov=True, num_samples=num_samples)
 
 
     #Credits to Hugh Salimbeni
@@ -157,13 +157,13 @@ class DSDGP(Model):
         return self._propagate(Xnew, full_cov=False, num_samples=num_samples)
 
     #Credits to Hugh Salimbeni
-    @autoflow((settings.float_type, [None, None]))
-    def predict_all_layers_full_cov(self, Xnew):
+    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
+    def predict_all_layers_full_cov(self, Xnew, num_samples):
         """
         Compute the mean and covariance matrix of the latent function(s) for
         all layers at the points Xnew.
         """
-        return self._propagate(Xnew, full_cov=True)
+        return self._propagate(Xnew, full_cov=True, num_samples=num_samples)
 
     #Credits to gpflow dev team
     @autoflow((settings.float_type, [None, None]), (tf.int32, []))
