@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from gpflow.params import Parameterized, ParamList
+from .layers import InputMixin, HiddenMixin, OutputMixin
 from .layers import Layer, InputLayer, OutputLayer, HiddenLayer
 from .multikernel_layers import MultikernelLayer, MultikernelInputLayer, MultikernelOutputLayer, MultikernelHiddenLayer
 
@@ -32,13 +33,10 @@ class Sequential(Parameterized):
 
         if not self.layers:
             #Temporary Hack
-            assert isinstance(layer, InputLayer) or isinstance(layer,
-                                                               MultikernelInputLayer), """First layer must be an
-            Input Layer"""
+            assert isinstance(layer, InputMixin), "First layer must be an Input Layer"
         else:
             #Temporary Hack
-            if isinstance(self.layers[-1], OutputLayer) or \
-            isinstance(self.layers[-1], MultikernelOutputLayer):
+            if isinstance(self.layers[-1], OutputMixin):
                 raise ValueError('Cannot add layers after an Output Layer')
 
             assert self.layers[-1].output_dim == layer.input_dim, """Input
