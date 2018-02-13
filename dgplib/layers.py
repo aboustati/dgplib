@@ -85,7 +85,7 @@ class Layer(Parameterized):
         if stochastic:
             mean, var = multisample_conditional(Xnew, full_cov)
         else:
-            mean, var = conditional(Xnew, full_cov)
+            mean, var = f_conditional(Xnew, full_cov)
 
         return mean, var
 
@@ -107,76 +107,81 @@ def find_weights(input_dim, output_dim, X):
 
     return W
 
-class InputLayer(Layer):
-    @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
-
-        super(InputLayer, self).__init__(input_dim, output_dim, num_inducing,
-                                         kernel, mean_function, name)
-
-
-    @defer_build()
-    def initialize_forward(self, X, Z):
-        """
-        Initialize Layer and Propagate values of inputs and inducing inputs
-        forward
-        """
-
+class InputMixin(object):
+    """
+    Mixin class for input layers. Implements a single method to compute the
+    value of the inputs and inducing inputs for the next layer.
+    """
+    def compute_inputs(self, X, Z):
         W = find_weights(self.input_dim, self.output_dim, X)
-
-        self.Z.assign(Z)
 
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
 
-        if isinstance(self.mean_function, Linear):
-            self.mean_function.A = W
+        return X_running, Z_running, W
 
-        return X_running, Z_running
+class HiddenMixin(object):
+    """
+    Mixin class for hidden layers. Implements a single method to compute the
+    value of the inputs and inducing inputs for the next layer.
+    """
+    def compute_inputs(self, X, Z):
+        W = find_weights(self.input_dim, self.output_dim, X)
 
+        Z_running = self.Z.value.copy().dot(W)
+        X_running = X.copy().dot(W)
 
-class HiddenLayer(Layer):
-    @defer_build()
-    def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
-        """
-        input_dim is an integer
-        output_dim is an integer
-        num_inducing is the number of inducing inputs
-        kernel is a kernel object (or list of kernel objects)
-        """
+        return X_running, Z_running, W
 
-        super(HiddenLayer, self).__init__(input_dim, output_dim, num_inducing, kernel,
-                                          mean_function, name)
+class OutputMixin(object):
+    """
+    Mixin class for output layers. Does not implement any methods. Only used
+    for type checking.
+    """
+    def compute_inputs(self, X, Z):
+        W = find_weights(self.input_dim, self.output_dim, X)
 
+        Z_running = self.Z.value.copy().dot(W)
+        X_running = X.copy().dot(W)
+
+        return X_running, Z_running, W
+
+class InputLayer(Layer, InputMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
-
-        W = find_weights(self.input_dim, self.output_dim, X)
-
         self.Z.assign(Z)
 
-        Z_running = self.Z.value.copy().dot(W)
-        X_running = X.copy().dot(W)
+        X_running, Z_running, W = self.compute_inputs(X, Z)
 
         if isinstance(self.mean_function, Linear):
-            self.mean_function.A =W
+            self.mean_function.A = W
+            self.mean_function.set_trainable(False)
 
         return X_running, Z_running
 
-class OutputLayer(Layer):
-    ###Maybe add __init__ with Y to do assertion on output_dim
+
+class HiddenLayer(Layer, HiddenMixin):
+    @defer_build()
+    def initialize_forward(self, X, Z):
+        """
+        Initialize Layer and Propagate values of inputs and inducing inputs
+        forward
+        """
+        self.Z.assign(Z)
+
+        X_running, Z_running, W = self.compute_inputs(X, Z)
+
+        if isinstance(self.mean_function, Linear):
+            self.mean_function.A = W
+            self.mean_function.set_trainable(False)
+
+        return X_running, Z_running
+
+class OutputLayer(Layer, OutputMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
