@@ -12,6 +12,7 @@ from gpflow.mean_functions import Linear, Zero
 from gpflow.params import Parameter, Parameterized, ParamList
 
 from .layers import Layer, find_weights
+from .layers import InputMixin, HiddenMixin, OutputMixin
 from .utils import shape_as_list
 
 class MultikernelLayer(Layer):
@@ -100,24 +101,20 @@ class MultikernelLayer(Layer):
 
         return mean, var
 
-class MultikernelInputLayer(MultikernelLayer):
+class MultikernelInputLayer(MultikernelLayer, InputMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
-
-        W = find_weights(self.input_dim, self.output_dim, X)
-
         if self._shared_Z:
             self.Z.assign(Z)
         else:
             for Z_current in self.Z:
                 Z_current.assign(Z)
 
-        Z_running = Z.copy().dot(W)
-        X_running = X.copy().dot(W)
+        X_running, Z_running, W = self.compute_inputs(X, Z)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
@@ -125,31 +122,27 @@ class MultikernelInputLayer(MultikernelLayer):
         return X_running, Z_running
 
 
-class MultikernelHiddenLayer(MultikernelLayer):
+class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
-
-        W = find_weights(self.input_dim, self.output_dim, X)
-
         if self._shared_Z:
             self.Z.assign(Z)
         else:
             for Z_current in self.Z:
                 Z_current.assign(Z)
 
-        Z_running = Z.copy().dot(W)
-        X_running = X.copy().dot(W)
+        X_running, Z_running, W = self.compute_inputs(X, Z)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A =W
 
         return X_running, Z_running
 
-class MultikernelOutputLayer(Layer):
+class MultikernelOutputLayer(Layer, OutputMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
