@@ -1,15 +1,11 @@
-#temporary
-#import sys
-#sys.path.append('../dgplib/')
-#import layers
-
 import unittest
 
 import numpy as np
 import tensorflow as tf
 
-from dgplib.layers import find_weights, Layer, InputLayer, HiddenLayer, OutputLayer
+from dgplib.layers import find_weights, Layer
 from dgplib.multikernel_layers import MultikernelLayer
+from dgplib.multikernel_layers import MultikernelInputLayer, MultikernelHiddenLayer, MultikernelOutputLayer
 
 from gpflow.decors import defer_build, autoflow, params_as_tensors
 from gpflow.kernels import White, RBF
@@ -78,14 +74,17 @@ class MultikernelLayerTest(unittest.TestCase):
             m, v = layer_as_model.predict(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 3))
+        #Full covariance and non-stochastic
         with self.subTest():
             m, v = layer_as_model.predict_full_cov(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 20, 3))
+        #Variance only and stochastic
         with self.subTest():
             m, v = layer_as_model.predict_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 3))
+        #Full covariance and stochastic
         with self.subTest():
             m, v = layer_as_model.predict_full_cov_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
@@ -101,113 +100,179 @@ class MultikernelLayerTest(unittest.TestCase):
             m, v = layer_as_model.predict(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 3))
+        #Full covariance and non-stochastic
         with self.subTest():
             m, v = layer_as_model.predict_full_cov(X)
             self.assertEqual(m.shape, (20, 3))
             self.assertEqual(v.shape, (20, 20, 3))
+        #Variance only and stochastic
         with self.subTest():
             m, v = layer_as_model.predict_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 3))
+        #Full covariance and stochastic
         with self.subTest():
             m, v = layer_as_model.predict_full_cov_stochastic(X)
             self.assertEqual(m.shape, (1, 20, 3))
             self.assertEqual(v.shape, (1, 20, 20, 3))
 
-# class InputLayerTest(unittest.TestCase):
-    # @defer_build()
-    # def setUp(self):
-        # self.rng = np.random.RandomState(42)
-        # kernel = RBF(2)
-        # input_dim = 2
-        # output_dim = 2
-        # self.W0 = np.zeros((input_dim, output_dim))
-        # mean_function = Linear(A=self.W0)
-        # self.Z = self.rng.randn(5,2)
-        # num_inducing = 5
+class MultikernelInputLayerTest(unittest.TestCase):
+    @defer_build()
+    def setUp(self):
+        self.rng = np.random.RandomState(42)
+        input_dim = 2
+        output_dim = 2
+        kern_list = [RBF(2) for _ in range(output_dim)]
+        self.W0 = np.zeros((input_dim, output_dim))
+        mean_function = Linear(A=self.W0)
+        self.Z = self.rng.randn(5,2)
+        num_inducing = 5
 
-        # self.layer = InputLayer(input_dim=input_dim,
-                                # output_dim=output_dim,
-                                # num_inducing=num_inducing,
-                                # kernel=kernel,
-                                # mean_function=mean_function)
+        self.layer = MultikernelInputLayer(input_dim=input_dim,
+                                output_dim=output_dim,
+                                num_inducing=num_inducing,
+                                kernel_list=kern_list,
+                                share_Z=False,
+                                mean_function=mean_function)
 
-        # self.X = self.rng.randn(10,2)
+        self.layer_shared_Z = MultikernelInputLayer(input_dim=input_dim,
+                                output_dim=output_dim,
+                                num_inducing=num_inducing,
+                                kernel_list=kern_list,
+                                share_Z=True,
+                                mean_function=mean_function)
 
-    # def test_initialize_forward(self):
-        # X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
+        self.X = self.rng.randn(10,2)
 
-        # with self.subTest():
-            # self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
+    def test_initialize_forward_unshared_Z(self):
+        X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
 
-        # with self.subTest():
-           # self.assertTrue(np.allclose(Z_running, self.Z))
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
 
-        # with self.subTest():
-           # self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+        with self.subTest():
+            self.assertTrue(np.allclose(Z_running, self.Z))
 
-        # with self.subTest():
-            # self.assertTrue(np.allclose(X_running, self.X))
+        with self.subTest():
+            for z in self.layer.Z:
+                self.assertTrue(np.allclose(z.value, self.Z))
 
-# class HiddenLayerTest(unittest.TestCase):
-    # @defer_build()
-    # def setUp(self):
-        # self.rng = np.random.RandomState(42)
-        # kernel = RBF(2)
-        # input_dim = 2
-        # output_dim = 2
-        # self.W0 = np.zeros((input_dim, output_dim))
-        # mean_function = Linear(A=self.W0)
-        # self.Z = self.rng.randn(5, 2)
-        # num_inducing = 5
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
 
-        # self.layer = HiddenLayer(input_dim=input_dim,
-                                 # output_dim=output_dim,
-                                 # num_inducing=num_inducing,
-                                 # kernel=kernel,
-                                 # mean_function=mean_function)
+    def test_initialize_forward_shared_Z(self):
+        X_running, Z_running = self.layer_shared_Z.initialize_forward(self.X, self.Z)
 
-        # self.X = self.rng.randn(10, 2)
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer_shared_Z.mean_function.A.value, self.W0))
 
-    # def test_initialize_forward(self):
-        # X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
+        with self.subTest():
+            self.assertTrue(np.allclose(Z_running, self.Z))
 
-        # with self.subTest():
-            # self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
+        with self.subTest():
+            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
 
-        # with self.subTest():
-           # self.assertTrue(np.allclose(Z_running, self.Z))
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
 
-        # with self.subTest():
-            # self.assertTrue(np.allclose(X_running, self.X))
+class MultikernelHiddenLayerTest(unittest.TestCase):
+    @defer_build()
+    def setUp(self):
+        self.rng = np.random.RandomState(42)
+        input_dim = 2
+        output_dim = 2
+        kern_list = [RBF(2) for _ in range(output_dim)]
+        self.W0 = np.zeros((input_dim, output_dim))
+        mean_function = Linear(A=self.W0)
+        self.Z = self.rng.randn(5, 2)
+        num_inducing = 5
 
-        # with self.subTest():
-            # self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+        self.layer = MultikernelHiddenLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel_list=kern_list,
+                                 share_Z=False,
+                                 mean_function=mean_function)
 
-# class OutputLayerTest(unittest.TestCase):
-    # @defer_build()
-    # def setUp(self):
-        # self.rng = np.random.RandomState(42)
-        # kernel = RBF(2)
-        # input_dim = 2
-        # output_dim = 2
-        # mean_function = None
-        # self.Z = self.rng.randn(5, 2)
-        # num_inducing = 5
+        self.layer_shared_Z = MultikernelHiddenLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel_list=kern_list,
+                                 share_Z=True,
+                                 mean_function=mean_function)
 
-        # self.layer = OutputLayer(input_dim=input_dim,
-                                 # output_dim=output_dim,
-                                 # num_inducing=num_inducing,
-                                 # kernel=kernel,
-                                 # mean_function=mean_function)
+        self.X = self.rng.randn(10, 2)
 
-        # self.X = self.rng.randn(10,2)
+    def test_initialize_forward_unshared_Z(self):
+        X_running, Z_running = self.layer.initialize_forward(self.X, self.Z)
 
-    # def test_initialize_forward(self):
-        # _ = self.layer.initialize_forward(self.X, self.Z)
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer.mean_function.A.value, self.W0))
 
-        # with self.subTest():
-           # self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+        with self.subTest():
+            self.assertTrue(np.allclose(Z_running, self.Z))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
+
+        with self.subTest():
+            for z in self.layer.Z:
+                self.assertTrue(np.allclose(z.value, self.Z))
+
+    def test_initialize_forward_shared_Z(self):
+        X_running, Z_running = self.layer_shared_Z.initialize_forward(self.X, self.Z)
+
+        with self.subTest():
+            self.assertFalse(np.allclose(self.layer_shared_Z.mean_function.A.value, self.W0))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(Z_running, self.Z))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(X_running, self.X))
+
+        with self.subTest():
+            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
+
+class MultikernelOutputLayerTest(unittest.TestCase):
+    @defer_build()
+    def setUp(self):
+        self.rng = np.random.RandomState(42)
+        input_dim = 2
+        output_dim = 2
+        kern_list = [RBF(2) for _ in range(output_dim)]
+        mean_function = None
+        self.Z = self.rng.randn(5, 2)
+        num_inducing = 5
+
+        self.layer = MultikernelOutputLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel_list=kern_list,
+                                 share_Z=False,
+                                 mean_function=mean_function)
+
+        self.layer_shared_Z = MultikernelOutputLayer(input_dim=input_dim,
+                                 output_dim=output_dim,
+                                 num_inducing=num_inducing,
+                                 kernel_list=kern_list,
+                                 share_Z=True,
+                                 mean_function=mean_function)
+
+        self.X = self.rng.randn(10,2)
+
+    def test_initialize_forward_unshared_Z(self):
+        _ = self.layer.initialize_forward(self.X, self.Z)
+
+        with self.subTest():
+            for z in self.layer.Z:
+                self.assertTrue(np.allclose(z.value, self.Z))
+
+    def test_initialize_forward_shared_Z(self):
+        _ = self.layer_shared_Z.initialize_forward(self.X, self.Z)
+
+        with self.subTest():
+            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
 
 if __name__=='__main__':
     unittest.main()
