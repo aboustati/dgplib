@@ -18,8 +18,11 @@ layer structure, i.e. `OutputLayer` at the end?
 * ~~`InputLayer` takes an initial value for Z, maybe better to disallow this and
   add it to the model object instead~~
 * `Sequential` has an `_initialized` private attribute. Turn this into property.
+* So far, multikernel layers have a set of inducing inputs for each kernel.
+  One idea is to allow a shared set of inducing inputs for all kernels (this
+could act as a form of regularasation)
 
 ## Known Bugs
-* Prediction with full covariance doesn't work because of numerical issues
+* ~Prediction with full covariance doesn't work because of numerical issues~
 * ~~Optimisation does not work~~
 * Gpflow bug: methods decorated with `autoflow` do not take named arguments
