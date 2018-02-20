@@ -128,7 +128,11 @@ class HiddenMixin(object):
     def compute_inputs(self, X, Z):
         W = find_weights(self.input_dim, self.output_dim, X)
 
-        Z_running = self.Z.value.copy().dot(W)
+        if isinstance(self.Z, ParamList):
+            Z_running = self.Z[0].value.copy().dot(W)
+        else:
+            Z_running = self.Z.value.copy().dot(W)
+
         X_running = X.copy().dot(W)
 
         return X_running, Z_running, W
