@@ -142,7 +142,7 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
 
         return X_running, Z_running
 
-class MultikernelOutputLayer(Layer, OutputMixin):
+class MultikernelOutputLayer(MultikernelLayer, OutputMixin):
     @defer_build()
     def initialize_forward(self, X, Z):
         """
