@@ -67,3 +67,13 @@ class Sequential(Parameterized):
 
         print('Model Parameters Initialized')
         self._initialized = True
+
+class MultitaskSequential(Sequential):
+    def initialize_params(self, X, Z):
+        X_ind = X[:, -1:]
+        Z_ind = Z[:, -1:]
+        X_running, Z_running = self.layers[0].initialize_forward(X, Z)
+        for layer in self.layers[1:]:
+            X_running = np.hstack([X_running, X_ind])
+            Z_running = np.hstack([Z_running, Z_ind])
+            X_running, Z_running = layer.initialize_forward(X_running, Z_running)
