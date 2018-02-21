@@ -20,7 +20,7 @@ class Layer(Parameterized):
 
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
+                 mean_function=None, multitask=False, name=None):
         """
         input_dim is an integer
         output_dim is an integer
@@ -33,8 +33,12 @@ class Layer(Parameterized):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_inducing = num_inducing
-        self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
-                           fix_shape=True)
+        if multitask:
+            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim+1)),
+                               fix_shape=True)
+        else:
+            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
+                               fix_shape=True)
 
         if isinstance(kernel, list):
             self.kernel = ParamList(kernel)
@@ -106,7 +110,7 @@ def find_weights(input_dim, output_dim, X, multitask=False):
         W = np.concatenate([I, zeros], 1)
 
     if multitask:
-        W = np.vstack([W, np.zeros((1,W.shape[1])))
+        W = np.vstack([W, np.zeros((1,W.shape[1]))])
 
     return W
 

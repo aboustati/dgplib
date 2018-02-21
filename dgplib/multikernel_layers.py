@@ -22,7 +22,7 @@ class MultikernelLayer(Layer):
 
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
-                 share_Z=False, mean_function=None, name=None):
+                 share_Z=False, mean_function=None, multitask=False, name=None):
 
         if output_dim != len(kernel_list):
             raise ValueError("Number of kernels must match output dimension")
@@ -32,6 +32,7 @@ class MultikernelLayer(Layer):
                                     num_inducing=num_inducing,
                                     kernel=kernel_list,
                                     mean_function=mean_function,
+                                    multitask=multitask,
                                     name=name)
 
         self.num_kernels = len(kernel_list)
@@ -39,7 +40,10 @@ class MultikernelLayer(Layer):
 
         if not self._shared_Z:
             del self.Z
-            Z = np.zeros((self.num_inducing, self.input_dim))
+            if multitask:
+                Z = np.zeros((self.num_inducing, self.input_dim+1))
+            else:
+                Z = np.zeros((self.num_inducing, self.input_dim))
             self.Z = ParamList([Parameter(Z.copy()) for _ in range(self.num_kernels)])
 
 
@@ -103,7 +107,7 @@ class MultikernelLayer(Layer):
 
 class MultikernelInputLayer(MultikernelLayer, InputMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
@@ -114,7 +118,7 @@ class MultikernelInputLayer(MultikernelLayer, InputMixin):
             for Z_current in self.Z:
                 Z_current.assign(Z)
 
-        X_running, Z_running, W = self.compute_inputs(X, Z)
+        X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
@@ -124,7 +128,7 @@ class MultikernelInputLayer(MultikernelLayer, InputMixin):
 
 class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
@@ -135,7 +139,7 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
             for Z_current in self.Z:
                 Z_current.assign(Z)
 
-        X_running, Z_running, W = self.compute_inputs(X, Z)
+        X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A =W
@@ -144,7 +148,7 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
 
 class MultikernelOutputLayer(MultikernelLayer, OutputMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
