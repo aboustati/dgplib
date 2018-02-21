@@ -95,7 +95,7 @@ class TestMethods(unittest.TestCase):
 
     def test_predict_f_full_cov(self):
         model, Xs = self.prepare()
-        mu, sigma = model.predict_f_full_cov(Xs)
+        mu, sigma = model.predict_f_full_cov(Xs, 1)
         with self.subTest():
             self.assertEqual(mu.shape, (1, 10, 1))
         with self.subTest():
