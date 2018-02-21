@@ -80,3 +80,5 @@ class MultitaskSequential(Sequential):
             X_running, Z_running = layer.initialize_forward(X_running,
                                                             Z_running,
                                                             multitask=True)
+        print('Model Parameters Initialized')
+        self._initialized = True
