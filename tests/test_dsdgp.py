@@ -117,7 +117,7 @@ class TestMethods(unittest.TestCase):
             with self.subTest():
                 np.testing.assert_array_less(np.full_like(v, -1e-6), v)
 
-    def test_predict_f_full_cov(self):
+    def test_predict_all_layers_full_cov(self):
         model, Xs = self.prepare()
         fs, fmeans, fvars = model.predict_all_layers_full_cov(Xs, 1)
         dims = [1, 1]
@@ -131,7 +131,7 @@ class TestMethods(unittest.TestCase):
             with self.subTest():
                 np.testing.assert_array_less(np.full_like(v, -1e-6), v)
 
-    def test_predict_f(self):
+    def test_predict_f_samples(self):
         model, Xs = self.prepare()
         fs = model.predict_f_samples(Xs, 10)
         with self.subTest():
