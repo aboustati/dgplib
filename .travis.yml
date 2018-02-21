@@ -17,4 +17,4 @@ install:
 
 script:
         - pytest
-        - codecov
+        - codecov --token=ebff81f1-b823-4d03-a600-599352c68f40
