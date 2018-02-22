@@ -8,6 +8,7 @@ from dgplib.models import MultitaskSequential
 
 from dgplib import MultitaskDSDGP
 
+from gpflow.decors import defer_build
 from gpflow.kernels import RBF, White
 from gpflow.likelihoods import Gaussian, SwitchedLikelihood
 from gpflow.mean_functions import Linear
@@ -36,22 +37,23 @@ class TestMultitaskDSDGP(unittest.TestCase):
         self.Y = np.hstack([Y, X_ind])
 
     def test_optimize(self):
-        input_layer = InputLayer(input_dim=1, output_dim=1,
-                                 num_inducing=self.M,
-                                 kernel=RBF(1)+White(1),
-                                 multitask=True
-                                )
-        output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=self.M,
-                                   kernel=RBF(1)+White(1),
-                                   multitask=True
-                                  )
+        with defer_build():
+            input_layer = InputLayer(input_dim=1, output_dim=1,
+                                     num_inducing=self.M,
+                                     kernel=RBF(1)+White(1),
+                                     multitask=True
+                                    )
+            output_layer = OutputLayer(input_dim=1, output_dim=1,
+                                       num_inducing=self.M,
+                                       kernel=RBF(1)+White(1),
+                                       multitask=True
+                                      )
 
-        seq = MultitaskSequential([input_layer, output_layer])
+            seq = MultitaskSequential([input_layer, output_layer])
 
-        model = MultitaskDSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq,
-                      likelihood=SwitchedLikelihood([Gaussian(), Gaussian()]),
-                      num_latent_Y=1)
+            model = MultitaskDSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq,
+                          likelihood=SwitchedLikelihood([Gaussian(), Gaussian()]),
+                          num_latent_Y=1)
         model.compile()
         before = model.compute_log_likelihood()
         opt = gpflow.train.AdamOptimizer(0.01)
@@ -79,19 +81,20 @@ class TestMethods(unittest.TestCase):
         Xs_ind = rng.randint(0,2, (M,1))
         Xs = np.hstack([Xs, Xs_ind])
 
-        lik = SwitchedLikelihood([Gaussian(), Gaussian()])
+        with defer_build():
+            lik = SwitchedLikelihood([Gaussian(), Gaussian()])
 
-        input_layer = InputLayer(input_dim=2, output_dim=1,
-                                 num_inducing=M, kernel=RBF(2)+White(2),
-                                 mean_function=Linear(A=np.ones((3,1))),
-                                 multitask=True)
-        output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=M, kernel=RBF(1)+White(1),
-                                   multitask=True)
+            input_layer = InputLayer(input_dim=2, output_dim=1,
+                                     num_inducing=M, kernel=RBF(2)+White(2),
+                                     mean_function=Linear(A=np.ones((3,1))),
+                                     multitask=True)
+            output_layer = OutputLayer(input_dim=1, output_dim=1,
+                                       num_inducing=M, kernel=RBF(1)+White(1),
+                                       multitask=True)
 
-        seq = MultitaskSequential([input_layer, output_layer])
+            seq = MultitaskSequential([input_layer, output_layer])
 
-        model = MultitaskDSDGP(X=X, Y=Y, Z=Z, layers=seq, likelihood=lik, num_latent_Y=1)
+            model = MultitaskDSDGP(X=X, Y=Y, Z=Z, layers=seq, likelihood=lik, num_latent_Y=1)
         model.compile()
         return model, Xs
 
