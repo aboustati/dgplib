@@ -14,14 +14,14 @@ from gpflow.mean_functions import Linear
 
 class TestDSDGP(unittest.TestCase):
     def setUp(self):
-        self.rng = np.random.seed(42)
+        self.rng = np.random.RandomState(42)
 
         self.Ns = 300
         #self.Xs = np.linspace(-0.5, 1.5, Ns)[:, None]
 
         self.N, self.M = 50, 25
-        self.X = np.random.uniform(0, 1, self.N)[:, None]
-        self.Z = np.random.uniform(0, 1, self.M)[:, None]
+        self.X = self.rng.uniform(0, 1, self.N)[:, None]
+        self.Z = self.rng.uniform(0, 1, self.M)[:, None]
         f_step = lambda x: 0. if x<0.5 else 1.
 
         self.Y = np.reshape([f_step(x) for x in self.X], self.X.shape) \
