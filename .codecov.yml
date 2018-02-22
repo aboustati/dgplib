@@ -1,0 +1,4 @@
+ignore:
+        - "*.py"
+        - "tests/*.py"
+        - "doc/notebooks/*"
