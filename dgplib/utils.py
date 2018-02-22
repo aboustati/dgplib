@@ -29,8 +29,8 @@ def normal_sample(mean, var, full_cov=False):
         S, N, D = shape_as_list(mean) # var is SNND
         mean = tf.transpose(mean, (0, 2, 1))  # SND -> SDN
         var = tf.transpose(var, (0, 3, 1, 2))  # SNND -> SDNN
-#        I = jitter * tf.eye(N, dtype=float_type)[None, None, :, :] # 11NN
-        chol = tf.cholesky(var)# + I)  # SDNN should be ok without as var already has jitter
+        I = jitter * tf.eye(N, dtype=float_type)[None, None, :, :] # 11NN
+        chol = tf.cholesky(var + I)  # SDNN 
         z = tf.random_normal([S, D, N, 1], dtype=float_type)
         f = mean + tf.matmul(chol, z)[:, :, :, 0]  # SDN(1)
         return tf.transpose(f, (0, 2, 1)) # SND  

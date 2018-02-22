@@ -20,7 +20,7 @@ class Layer(Parameterized):
 
     @defer_build()
     def __init__(self, input_dim, output_dim, num_inducing, kernel,
-                 mean_function=None, name=None):
+                 mean_function=None, multitask=False, name=None):
         """
         input_dim is an integer
         output_dim is an integer
@@ -33,8 +33,12 @@ class Layer(Parameterized):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_inducing = num_inducing
-        self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
-                           fix_shape=True)
+        if multitask:
+            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim+1)),
+                               fix_shape=True)
+        else:
+            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
+                               fix_shape=True)
 
         if isinstance(kernel, list):
             self.kernel = ParamList(kernel)
@@ -89,7 +93,7 @@ class Layer(Parameterized):
 
         return mean, var
 
-def find_weights(input_dim, output_dim, X):
+def find_weights(input_dim, output_dim, X, multitask=False):
     """
     Find the initial weights of the Linear mean function based on
     input and output dimensions of the layer
@@ -97,13 +101,21 @@ def find_weights(input_dim, output_dim, X):
 
     if input_dim == output_dim:
         W = np.eye(input_dim)
+
     elif input_dim > output_dim:
-        _, _, V = np.linalg.svd(X, full_matrices=False)
+        if multitask:
+            _, _, V = np.linalg.svd(X[:,:-1], full_matrices=False)
+        else:
+            _, _, V = np.linalg.svd(X, full_matrices=False)
         W = V[:output_dim, :].T
+
     elif input_dim < output_dim:
         I = np.eye(input_dim)
         zeros = np.zeros((input_dim, output_dim - input_dim))
         W = np.concatenate([I, zeros], 1)
+
+    if multitask:
+        W = np.concatenate([W, np.zeros((1,W.shape[1]))], axis=0)
 
     return W
 
@@ -112,8 +124,8 @@ class InputMixin(object):
     Mixin class for input layers. Implements a single method to compute the
     value of the inputs and inducing inputs for the next layer.
     """
-    def compute_inputs(self, X, Z):
-        W = find_weights(self.input_dim, self.output_dim, X)
+    def compute_inputs(self, X, Z, multitask=False):
+        W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
@@ -125,8 +137,8 @@ class HiddenMixin(object):
     Mixin class for hidden layers. Implements a single method to compute the
     value of the inputs and inducing inputs for the next layer.
     """
-    def compute_inputs(self, X, Z):
-        W = find_weights(self.input_dim, self.output_dim, X)
+    def compute_inputs(self, X, Z, multitask=False):
+        W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
         if isinstance(self.Z, ParamList):
             Z_running = self.Z[0].value.copy().dot(W)
@@ -142,8 +154,8 @@ class OutputMixin(object):
     Mixin class for output layers. Does not implement any methods. Only used
     for type checking.
     """
-    def compute_inputs(self, X, Z):
-        W = find_weights(self.input_dim, self.output_dim, X)
+    def compute_inputs(self, X, Z, multitask=False):
+        W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
         Z_running = self.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
@@ -152,14 +164,14 @@ class OutputMixin(object):
 
 class InputLayer(Layer, InputMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
         self.Z.assign(Z)
 
-        X_running, Z_running, W = self.compute_inputs(X, Z)
+        X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
@@ -170,14 +182,14 @@ class InputLayer(Layer, InputMixin):
 
 class HiddenLayer(Layer, HiddenMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
         self.Z.assign(Z)
 
-        X_running, Z_running, W = self.compute_inputs(X, Z)
+        X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
@@ -187,7 +199,7 @@ class HiddenLayer(Layer, HiddenMixin):
 
 class OutputLayer(Layer, OutputMixin):
     @defer_build()
-    def initialize_forward(self, X, Z):
+    def initialize_forward(self, X, Z, multitask=False):
         """
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
