@@ -11,7 +11,7 @@ from gpflow.params import DataHolder, Minibatch
 from .dsdgp import DSDGP
 from .utils import normal_sample, tile_over_samples
 
-class MultitaskDSDGP(Model):
+class MultitaskDSDGP(DSDGP):
     @params_as_tensors
     def _propagate(self, Xnew, full_cov=False, num_samples=1):
         """
