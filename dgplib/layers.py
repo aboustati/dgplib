@@ -101,16 +101,21 @@ def find_weights(input_dim, output_dim, X, multitask=False):
 
     if input_dim == output_dim:
         W = np.eye(input_dim)
+
     elif input_dim > output_dim:
-        _, _, V = np.linalg.svd(X, full_matrices=False)
+        if multitask:
+            _, _, V = np.linalg.svd(X[:,:-1], full_matrices=False)
+        else:
+            _, _, V = np.linalg.svd(X, full_matrices=False)
         W = V[:output_dim, :].T
+
     elif input_dim < output_dim:
         I = np.eye(input_dim)
         zeros = np.zeros((input_dim, output_dim - input_dim))
         W = np.concatenate([I, zeros], 1)
 
     if multitask:
-        W = np.vstack([W, np.zeros((1,W.shape[1]))])
+        W = np.concatenate([W, np.zeros((1,W.shape[1]))], axis=0)
 
     return W
 
