@@ -7,4 +7,4 @@ from . import utils
 from . import specialized_kernels
 
 from .dsdgp import DSDGP
-
+from .multitask_dsdgp import MultitaskDSDGP
