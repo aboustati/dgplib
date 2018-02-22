@@ -118,6 +118,7 @@ class MultikernelInputLayer(MultikernelLayer, InputMixin):
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A = W
+            self.mean_function.set_trainable(False)
 
         return X_running, Z_running
 
@@ -139,6 +140,7 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
 
         if isinstance(self.mean_function, Linear):
             self.mean_function.A =W
+            self.mean_function.set_trainable(False)
 
         return X_running, Z_running
 
