@@ -24,8 +24,8 @@ class MultikernelLayer(Layer):
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
                  share_Z=False, mean_function=None, multitask=False, name=None):
 
-        if output_dim != len(kernel_list):
-            raise ValueError("Number of kernels must match output dimension")
+        if output_dim%len(kernel_list) != 0:
+            raise ValueError("Output dimension must be a multiple of the number of kernels")
 
         super(MultikernelLayer, self).__init__(input_dim=input_dim,
                                     output_dim=output_dim,
@@ -37,6 +37,7 @@ class MultikernelLayer(Layer):
 
         self.num_kernels = len(kernel_list)
         self._shared_Z = share_Z
+        self.offset = int(self.output_dim/self.num_kernels)
 
         if not self._shared_Z:
             del self.Z
@@ -52,8 +53,8 @@ class MultikernelLayer(Layer):
         if K:
             KL = 0.
             for i, k in enumerate(K):
-                KL += gauss_kl_white(self.q_mu[:,i][:,None],
-                                     self.q_sqrt[i,:,:][None,:,:],
+                KL += gauss_kl_white(self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
+                                     self.q_sqrt[(i*self.offset):((i+1)*self.offset),:,:],
                                      K=k
                                     )
             return KL
@@ -73,8 +74,8 @@ class MultikernelLayer(Layer):
                 m, v = conditional(Xnew=Xnew,
                                    X=Z,
                                    kern=k,
-                                   f=self.q_mu[:,i][:,None],
-                                   q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
+                                   f=self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
+                                   q_sqrt=self.q_sqrt[(i*self.offset):((i+1)*self.offset),:,:,],
                                    full_cov=full_cov,
                                    white=True)
                 mean.append(m)
