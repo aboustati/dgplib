@@ -1,6 +1,9 @@
 # dgplib
 Library for Deep Gaussian Processes based on GPflow
 
+[![Build Status](https://travis-ci.org/aboustati/dgplib.svg?branch=master)](https://travis-ci.org/aboustati/dgplib)
+[![codecov](https://codecov.io/gh/aboustati/dgplib/branch/master/graph/badge.svg)](https://codecov.io/gh/aboustati/dgplib)
+
 ## About the Project:
 
 The primary aim of this project is to develop a codebase to allow for fast

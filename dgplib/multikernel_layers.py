@@ -35,7 +35,7 @@ class MultikernelLayer(Layer):
 
         self.num_kernels = len(kernel_list)
         self._shared_Z = share_Z
-        self.offset = self.output_dim/self.num_kernels
+        self.offset = int(self.output_dim/self.num_kernels)
 
         if not self._shared_Z:
             del self.Z
@@ -88,6 +88,7 @@ class MultikernelLayer(Layer):
                                                   settings.tf_float))
                 return tf.stack(mean), tf.stack(var)
             else:
+                #S, N, D = shape_as_list(Xnew)
                 s = tf.shape(Xnew)
                 X_flat = tf.reshape(Xnew, [s[0]*s[1], s[2]])
                 mean, var = f_conditional(X_flat)
