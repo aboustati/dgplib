@@ -13,7 +13,6 @@ from gpflow.params import Parameter, Parameterized, ParamList
 
 from .layers import Layer, find_weights
 from .layers import InputMixin, HiddenMixin, OutputMixin
-from .utils import shape_as_list
 
 class MultikernelLayer(Layer):
     """
@@ -24,8 +23,8 @@ class MultikernelLayer(Layer):
     def __init__(self, input_dim, output_dim, num_inducing, kernel_list,
                  share_Z=False, mean_function=None, name=None):
 
-        if output_dim != len(kernel_list):
-            raise ValueError("Number of kernels must match output dimension")
+        if output_dim%len(kernel_list) != 0:
+            raise ValueError("Output dimension must be a multiple of the number of kernels")
 
         super(MultikernelLayer, self).__init__(input_dim=input_dim,
                                     output_dim=output_dim,
@@ -36,6 +35,7 @@ class MultikernelLayer(Layer):
 
         self.num_kernels = len(kernel_list)
         self._shared_Z = share_Z
+        self.offset = self.output_dim/self.num_kernels
 
         if not self._shared_Z:
             del self.Z
@@ -48,8 +48,8 @@ class MultikernelLayer(Layer):
         if K:
             KL = 0.
             for i, k in enumerate(K):
-                KL += gauss_kl_white(self.q_mu[:,i][:,None],
-                                     self.q_sqrt[i,:,:][None,:,:],
+                KL += gauss_kl_white(self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
+                                     self.q_sqrt[(i*self.offset):((i+1)*self.offset),:,:],
                                      K=k
                                     )
             return KL
@@ -69,8 +69,8 @@ class MultikernelLayer(Layer):
                 m, v = conditional(Xnew=Xnew,
                                    X=Z,
                                    kern=k,
-                                   f=self.q_mu[:,i][:,None],
-                                   q_sqrt=self.q_sqrt[i,:,:,][None,:,:],
+                                   f=self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
+                                   q_sqrt=self.q_sqrt[(i*self.offset):((i+1)*self.offset),:,:,],
                                    full_cov=full_cov,
                                    white=True)
                 mean.append(m)
@@ -88,7 +88,6 @@ class MultikernelLayer(Layer):
                                                   settings.tf_float))
                 return tf.stack(mean), tf.stack(var)
             else:
-                #S, N, D = shape_as_list(Xnew)
                 s = tf.shape(Xnew)
                 X_flat = tf.reshape(Xnew, [s[0]*s[1], s[2]])
                 mean, var = f_conditional(X_flat)
@@ -138,7 +137,7 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
         X_running, Z_running, W = self.compute_inputs(X, Z)
 
         if isinstance(self.mean_function, Linear):
-            self.mean_function.A =W
+            self.mean_function.A = W
 
         return X_running, Z_running
 
