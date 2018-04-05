@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='dgplib',
-      version='0.2',
+      version='0.3',
       author='Ayman Boustati',
       author_email='aboustati@turing.ac.uk',
       license='Apache License 2.0',
