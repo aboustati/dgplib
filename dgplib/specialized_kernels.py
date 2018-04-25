@@ -17,7 +17,7 @@ class SwitchedKernel(Combination):
         super(SwitchedKernel, self).__init__(kernels=kern_list,
                                              name=name)
         self.output_dim = output_dim
-        self.num_kernels = len(self.kern_list)
+        self.num_kernels = len(self.kernels)
         assert self.output_dim==self.num_kernels
 
     @params_as_tensors
@@ -43,7 +43,7 @@ class SwitchedKernel(Combination):
                                            ind_X2, self.output_dim)
 
         Ks = []
-        for k, p, p2 in zip(self.kern_list, ind_X_parts, ind_X2_parts):
+        for k, p, p2 in zip(self.kernels, ind_X_parts, ind_X2_parts):
             gram = k.K(tf.gather(X, p), tf.gather(X2, p2))
             Ks.append(gram)
 
@@ -68,5 +68,5 @@ class SwitchedKernel(Combination):
         ind_X_parts = tf.dynamic_partition(tf.range(0, tf.size(ind_X)),
                                            ind_X, self.output_dim)
 
-        Ks = [k.Kdiag(tf.gather(X, p)) for k, p in zip(self.kern_list, ind_X_parts)]
+        Ks = [k.Kdiag(tf.gather(X, p)) for k, p in zip(self.kernels, ind_X_parts)]
         return tf.dynamic_stitch(ind_X_parts, Ks)
