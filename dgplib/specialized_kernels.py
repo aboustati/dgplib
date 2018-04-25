@@ -14,7 +14,7 @@ class SwitchedKernel(Combination):
     X.
     """
     def __init__(self, kern_list, output_dim, name=None):
-        super(SwitchedKernel, self).__init__(kern_list=kern_list,
+        super(SwitchedKernel, self).__init__(kernels=kern_list,
                                              name=name)
         self.output_dim = output_dim
         self.num_kernels = len(self.kern_list)
