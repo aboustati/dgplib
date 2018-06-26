@@ -3,11 +3,12 @@ import unittest
 import numpy as np
 import gpflow
 
-from dgplib.layers import InputLayer, OutputLayer, HiddenLayer
+from dgplib.layers import InputLayer, OutputLayer
 from dgplib.cascade import Sequential
 
 from dgplib import DSDGP
 
+from gpflow.decors import defer_build, name_scope
 from gpflow.kernels import RBF, White
 from gpflow.likelihoods import Gaussian
 from gpflow.mean_functions import Linear
@@ -41,15 +42,17 @@ class TestDSDGP(unittest.TestCase):
             print(e)
             self.fail('DSDGP contructor fails')
 
+    @name_scope('dsdgp_optimizer')
     def test_optimize(self):
-        input_layer = InputLayer(input_dim=1, output_dim=1,
-                                 num_inducing=self.M, kernel=RBF(1)+White(1))
-        output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=self.M, kernel=RBF(1)+White(1))
+        with defer_build():
+            input_layer = InputLayer(input_dim=1, output_dim=1,
+                                     num_inducing=self.M, kernel=RBF(1)+White(1))
+            output_layer = OutputLayer(input_dim=1, output_dim=1,
+                                       num_inducing=self.M, kernel=RBF(1)+White(1))
 
-        seq = Sequential([input_layer, output_layer])
+            seq = Sequential([input_layer, output_layer])
 
-        model = DSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq, likelihood=Gaussian())
+            model = DSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq, likelihood=Gaussian())
         model.compile()
         before = model.compute_log_likelihood()
         opt = gpflow.train.AdamOptimizer(0.01)

@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+import tensorflow as tf
 import gpflow
 
 from dgplib.layers import InputLayer, OutputLayer, HiddenLayer
@@ -8,7 +9,7 @@ from dgplib.cascade import MultitaskSequential
 
 from dgplib import MultitaskDSDGP
 
-from gpflow.decors import defer_build
+from gpflow.decors import defer_build, name_scope
 from gpflow.kernels import RBF, White
 from gpflow.likelihoods import Gaussian, SwitchedLikelihood
 from gpflow.mean_functions import Linear
@@ -36,6 +37,7 @@ class TestMultitaskDSDGP(unittest.TestCase):
         self.Z = np.hstack([Z, Z_ind])
         self.Y = np.hstack([Y, X_ind])
 
+    @name_scope('multitask_dsdgp_optimizer')
     def test_optimize(self):
         with defer_build():
             input_layer = InputLayer(input_dim=1, output_dim=1,

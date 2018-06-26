@@ -3,16 +3,14 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from dgplib.layers import find_weights, Layer
 from dgplib.multikernel_layers import MultikernelLayer
 from dgplib.multikernel_layers import MultikernelInputLayer, MultikernelHiddenLayer, MultikernelOutputLayer
 
-from gpflow.decors import defer_build, autoflow, params_as_tensors
+from gpflow.decors import defer_build, autoflow, params_as_tensors, name_scope
 from gpflow.kernels import White, RBF
 from gpflow.mean_functions import Linear
 from gpflow.models import Model
 from gpflow.params import Parameter
-from gpflow.test_util import GPflowTestCase
 
 class MultikernelLayerTest(unittest.TestCase):
     @defer_build()
@@ -21,8 +19,8 @@ class MultikernelLayerTest(unittest.TestCase):
         num_output = 3
         num_inducing = 10
         kern_list = [RBF(1) for _ in range(num_output)]
-        Z = np.random.randn(num_inducing, 1)
-        X = np.random.randn(20, 1)
+        Z = rng.randn(num_inducing, 1)
+        X = rng.randn(20, 1)
 
         layer = MultikernelLayer(1, num_output, num_inducing, kern_list, share_Z=False)
         for feat in layer.feature:
@@ -33,6 +31,7 @@ class MultikernelLayerTest(unittest.TestCase):
 
         return X, Z , layer, layer_shared_Z, kern_list
 
+    @name_scope('multikernel')
     @defer_build()
     def prepare_autoflow_functions(self, layer):
         class LayerAsModel(Model):
@@ -135,6 +134,7 @@ class WideMultikernelLayerTest(unittest.TestCase):
 
         return X, Z , layer, layer_shared_Z, kern_list
 
+    @name_scope('wide_layer')
     @defer_build()
     def prepare_autoflow_functions(self, layer):
         class LayerAsModel(Model):
