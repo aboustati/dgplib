@@ -1,8 +1,3 @@
-#temporary
-#import sys
-#sys.path.append('../dgplib/')
-#import layers
-
 import unittest
 
 import numpy as np
@@ -12,7 +7,6 @@ from dgplib.layers import find_weights, InputLayer, HiddenLayer, OutputLayer
 from gpflow.decors import defer_build
 from gpflow.kernels import White, RBF
 from gpflow.mean_functions import Linear
-from gpflow.test_util import GPflowTestCase
 
 class LayerTest(unittest.TestCase):
     def setUp(self):
@@ -79,7 +73,7 @@ class InputLayerTest(unittest.TestCase):
            self.assertTrue(np.allclose(Z_running, self.Z))
 
         with self.subTest():
-           self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+           self.assertTrue(np.allclose(self.layer.feature.Z.value, self.Z))
 
         with self.subTest():
             self.assertTrue(np.allclose(X_running, self.X))
@@ -117,7 +111,7 @@ class HiddenLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(X_running, self.X))
 
         with self.subTest():
-            self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+            self.assertTrue(np.allclose(self.layer.feature.Z.value, self.Z))
 
 class OutputLayerTest(unittest.TestCase):
     @defer_build()
@@ -142,7 +136,7 @@ class OutputLayerTest(unittest.TestCase):
         _ = self.layer.initialize_forward(self.X, self.Z)
 
         with self.subTest():
-           self.assertTrue(np.allclose(self.layer.Z.value, self.Z))
+           self.assertTrue(np.allclose(self.layer.feature.Z.value, self.Z))
 
 if __name__=='__main__':
     unittest.main()

@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from . import layers
-from . import models
+from . import cascade
 from . import multikernel_layers
 from . import utils
 from . import specialized_kernels

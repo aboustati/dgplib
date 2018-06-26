@@ -25,11 +25,11 @@ class MultikernelLayerTest(unittest.TestCase):
         X = np.random.randn(20, 1)
 
         layer = MultikernelLayer(1, num_output, num_inducing, kern_list, share_Z=False)
-        for z in layer.Z:
-            z.assign(Z.copy())
+        for feat in layer.feature:
+            feat.Z.assign(Z.copy())
 
         layer_shared_Z = MultikernelLayer(1, num_output, num_inducing, kern_list, share_Z=True)
-        layer_shared_Z.Z.assign(Z)
+        layer_shared_Z.feature.Z.assign(Z)
 
         return X, Z , layer, layer_shared_Z, kern_list
 
@@ -123,15 +123,15 @@ class WideMultikernelLayerTest(unittest.TestCase):
         num_output = 9
         num_inducing = 10
         kern_list = [RBF(1) for _ in range(num_output)]
-        Z = np.random.randn(num_inducing, 1)
-        X = np.random.randn(20, 1)
+        Z = rng.randn(num_inducing, 1)
+        X = rng.randn(20, 1)
 
         layer = MultikernelLayer(1, num_output, num_inducing, kern_list, share_Z=False)
-        for z in layer.Z:
-            z.assign(Z.copy())
+        for feat in layer.feature:
+            feat.Z.assign(Z.copy())
 
         layer_shared_Z = MultikernelLayer(1, num_output, num_inducing, kern_list, share_Z=True)
-        layer_shared_Z.Z.assign(Z)
+        layer_shared_Z.feature.Z.assign(Z)
 
         return X, Z , layer, layer_shared_Z, kern_list
 
@@ -256,8 +256,8 @@ class MultikernelInputLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(Z_running, self.Z))
 
         with self.subTest():
-            for z in self.layer.Z:
-                self.assertTrue(np.allclose(z.value, self.Z))
+            for feat in self.layer.feature:
+                self.assertTrue(np.allclose(feat.Z.value, self.Z))
 
         with self.subTest():
             self.assertTrue(np.allclose(X_running, self.X))
@@ -272,7 +272,7 @@ class MultikernelInputLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(Z_running, self.Z))
 
         with self.subTest():
-            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
+            self.assertTrue(np.allclose(self.layer_shared_Z.feature.Z.value, self.Z))
 
         with self.subTest():
             self.assertTrue(np.allclose(X_running, self.X))
@@ -318,8 +318,8 @@ class MultikernelHiddenLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(X_running, self.X))
 
         with self.subTest():
-            for z in self.layer.Z:
-                self.assertTrue(np.allclose(z.value, self.Z))
+            for feat in self.layer.feature:
+                self.assertTrue(np.allclose(feat.Z.value, self.Z))
 
     def test_initialize_forward_shared_Z(self):
         X_running, Z_running = self.layer_shared_Z.initialize_forward(self.X, self.Z)
@@ -334,7 +334,7 @@ class MultikernelHiddenLayerTest(unittest.TestCase):
             self.assertTrue(np.allclose(X_running, self.X))
 
         with self.subTest():
-            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
+            self.assertTrue(np.allclose(self.layer_shared_Z.feature.Z.value, self.Z))
 
 class MultikernelOutputLayerTest(unittest.TestCase):
     @defer_build()
@@ -367,14 +367,14 @@ class MultikernelOutputLayerTest(unittest.TestCase):
         _ = self.layer.initialize_forward(self.X, self.Z)
 
         with self.subTest():
-            for z in self.layer.Z:
-                self.assertTrue(np.allclose(z.value, self.Z))
+            for feat in self.layer.feature:
+                self.assertTrue(np.allclose(feat.Z.value, self.Z))
 
     def test_initialize_forward_shared_Z(self):
         _ = self.layer_shared_Z.initialize_forward(self.X, self.Z)
 
         with self.subTest():
-            self.assertTrue(np.allclose(self.layer_shared_Z.Z.value, self.Z))
+            self.assertTrue(np.allclose(self.layer_shared_Z.feature.Z.value, self.Z))
 
 if __name__=='__main__':
     unittest.main()

@@ -7,13 +7,13 @@ from gpflow import settings
 
 from gpflow.conditionals import conditional
 from gpflow.decors import params_as_tensors, autoflow, defer_build
+from gpflow.features import inducingpoint_wrapper
 from gpflow.kullback_leiblers import gauss_kl
 from gpflow.mean_functions import Linear, Zero
 from gpflow.params import Parameter, Parameterized, ParamList
 
-from .layers import Layer, find_weights
+from .layers import Layer
 from .layers import InputMixin, HiddenMixin, OutputMixin
-from .utils import shape_as_list
 
 class MultikernelLayer(Layer):
     """
@@ -40,12 +40,13 @@ class MultikernelLayer(Layer):
         self.offset = int(self.output_dim/self.num_kernels)
 
         if not self._shared_Z:
-            del self.Z
+            del self.feature
             if multitask:
                 Z = np.zeros((self.num_inducing, self.input_dim+1))
             else:
                 Z = np.zeros((self.num_inducing, self.input_dim))
-            self.Z = ParamList([Parameter(Z.copy()) for _ in range(self.num_kernels)])
+
+            self.feature = ParamList([inducingpoint_wrapper(None, Z.copy()) for _ in range(self.num_kernels)])
 
 
     @params_as_tensors
@@ -67,19 +68,21 @@ class MultikernelLayer(Layer):
             mean = []
             var = []
             if self._shared_Z:
-                Zs = [self.Z for _ in range(self.num_kernels)]
+                feats = [self.feature for _ in range(self.num_kernels)]
             else:
-                Zs = self.Z
-            for i, (k, Z) in enumerate(zip(self.kernel, Zs)):
-                m, v = conditional(Xnew=Xnew,
-                                   X=Z,
-                                   kern=k,
-                                   f=self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
+                feats = [feat for feat in self.feature]
+            for i, (k, feat) in enumerate(zip(self.kernel, feats)):
+                m, v = conditional(Xnew, feat, k, self.q_mu[:,(i*self.offset):((i+1)*self.offset)],
                                    q_sqrt=self.q_sqrt[(i*self.offset):((i+1)*self.offset),:,:,],
                                    full_cov=full_cov,
                                    white=True)
                 mean.append(m)
-                var.append(v)
+
+                #temporary fix
+                if full_cov:
+                    var.append(tf.transpose(v))
+                else:
+                    var.append(v)
 
             mean = tf.concat(mean, axis=-1) #NxK
             var = tf.concat(var, axis=-1) #NxK or NxNxK
@@ -114,10 +117,10 @@ class MultikernelInputLayer(MultikernelLayer, InputMixin):
         forward
         """
         if self._shared_Z:
-            self.Z.assign(Z)
+            self.feature.Z.assign(Z)
         else:
-            for Z_current in self.Z:
-                Z_current.assign(Z)
+            for feat in self.feature:
+                feat.Z.assign(Z)
 
         X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
@@ -136,10 +139,10 @@ class MultikernelHiddenLayer(MultikernelLayer, HiddenMixin):
         forward
         """
         if self._shared_Z:
-            self.Z.assign(Z)
+            self.feature.Z.assign(Z)
         else:
-            for Z_current in self.Z:
-                Z_current.assign(Z)
+            for feat in self.feature:
+                feat.Z.assign(Z)
 
         X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
@@ -158,9 +161,9 @@ class MultikernelOutputLayer(MultikernelLayer, OutputMixin):
         """
 
         if self._shared_Z:
-            self.Z.assign(Z)
+            self.feature.Z.assign(Z)
         else:
-            for Z_current in self.Z:
-                Z_current.assign(Z)
+            for feat in self.feature:
+                feat.Z.assign(Z)
 
         return (None, None)

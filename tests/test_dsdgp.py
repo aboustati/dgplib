@@ -4,7 +4,7 @@ import numpy as np
 import gpflow
 
 from dgplib.layers import InputLayer, OutputLayer, HiddenLayer
-from dgplib.models import Sequential
+from dgplib.cascade import Sequential
 
 from dgplib import DSDGP
 
@@ -25,7 +25,7 @@ class TestDSDGP(unittest.TestCase):
         f_step = lambda x: 0. if x<0.5 else 1.
 
         self.Y = np.reshape([f_step(x) for x in self.X], self.X.shape) \
-                 + np.random.randn(*self.X.shape)*1e-2
+                 + self.rng.randn(*self.X.shape)*1e-2
 
     def test_contructor(self):
         input_layer = InputLayer(input_dim=1, output_dim=1,

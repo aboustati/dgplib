@@ -1,12 +1,6 @@
-import numpy as np
 import tensorflow as tf
 
-from gpflow import settings
-
 from gpflow.decors import autoflow, defer_build, params_as_tensors
-from gpflow.mean_functions import Zero
-from gpflow.models import Model
-from gpflow.params import DataHolder, Minibatch
 
 from .dsdgp import DSDGP
 from .utils import normal_sample, tile_over_samples
@@ -30,4 +24,3 @@ class MultitaskDSDGP(DSDGP):
             Fvars.append(var)
 
         return Fs[1:], Fmeans, Fvars
-

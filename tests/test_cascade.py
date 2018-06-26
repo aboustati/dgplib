@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from dgplib.layers import InputLayer, HiddenLayer, OutputLayer
-from dgplib.models import Sequential, MultitaskSequential
+from dgplib.cascade import Sequential, MultitaskSequential
 
 from gpflow.decors import defer_build
 from gpflow.kernels import RBF
@@ -148,7 +148,7 @@ class SequentialTest(unittest.TestCase):
         seq = Sequential([input_layer, hidden_layer_1, output_layer])
         seq.initialize_params(X, Z)
 
-        self.assertTrue(np.allclose(Z, seq.layers[0].Z.value))
+        self.assertTrue(np.allclose(Z, seq.layers[0].feature.Z.value))
 
 
 class MultitaskSequentialTest(unittest.TestCase):
@@ -173,7 +173,7 @@ class MultitaskSequentialTest(unittest.TestCase):
         seq.initialize_params(X, Z)
 
         for l in seq.layers:
-            self.assertTrue(np.allclose(Z_ind, l.Z.value[:, -1:]))
+            self.assertTrue(np.allclose(Z_ind, l.feature.Z.value[:, -1:]))
 
 if __name__=="__main__":
     unittest.main()

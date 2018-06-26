@@ -1,4 +1,3 @@
-import numpy as np
 import tensorflow as tf
 
 from gpflow import settings
@@ -31,7 +30,7 @@ class DSDGP(Model):
     """
     @defer_build()
     def __init__(self, X, Y, Z, layers, likelihood,
-                 num_latent_Y=None,
+                 num_latent=None,
                  minibatch_size=None,
                  num_samples=1,
                  mean_function=Zero(),
@@ -58,7 +57,9 @@ class DSDGP(Model):
 
         self.num_data, D_X = X.shape
         self.num_samples = num_samples
-        self.D_Y = num_latent_Y or Y.shape[1]
+        self.D_Y = num_latent or Y.shape[1]
+
+        self.mean_function = mean_function
 
         layers.initialize_params(X, Z)#Maybe add initialization method for model
         if layers._initialized == True:

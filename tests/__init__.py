@@ -1,7 +1,7 @@
 import unittest
 
 from . import test_layer
-from . import test_models
+from . import test_cascade
 
 def test_module_suite():
     loader = unittest.TestLoader()

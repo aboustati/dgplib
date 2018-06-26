@@ -4,7 +4,7 @@ import numpy as np
 import gpflow
 
 from dgplib.layers import InputLayer, OutputLayer, HiddenLayer
-from dgplib.models import MultitaskSequential
+from dgplib.cascade import MultitaskSequential
 
 from dgplib import MultitaskDSDGP
 
@@ -53,7 +53,7 @@ class TestMultitaskDSDGP(unittest.TestCase):
 
             model = MultitaskDSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq,
                           likelihood=SwitchedLikelihood([Gaussian(), Gaussian()]),
-                          num_latent_Y=1)
+                          num_latent=1)
         model.compile()
         before = model.compute_log_likelihood()
         opt = gpflow.train.AdamOptimizer(0.01)
@@ -94,7 +94,7 @@ class TestMethods(unittest.TestCase):
 
             seq = MultitaskSequential([input_layer, output_layer])
 
-            model = MultitaskDSDGP(X=X, Y=Y, Z=Z, layers=seq, likelihood=lik, num_latent_Y=1)
+            model = MultitaskDSDGP(X=X, Y=Y, Z=Z, layers=seq, likelihood=lik, num_latent=1)
         model.compile()
         return model, Xs
 

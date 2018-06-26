@@ -10,8 +10,8 @@ from gpflow.decors import params_as_tensors, autoflow, defer_build
 from gpflow.kullback_leiblers import gauss_kl
 from gpflow.mean_functions import Linear, Zero
 from gpflow.params import Parameter, Parameterized, ParamList
+from gpflow.features import inducingpoint_wrapper
 
-from .utils import shape_as_list
 
 class Layer(Parameterized):
     """
@@ -34,18 +34,18 @@ class Layer(Parameterized):
         self.output_dim = output_dim
         self.num_inducing = num_inducing
         if multitask:
-            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim+1)),
-                               fix_shape=True)
+            Z = np.zeros((self.num_inducing, self.input_dim + 1))
         else:
-            self.Z = Parameter(np.zeros((self.num_inducing, self.input_dim)),
-                               fix_shape=True)
+            Z = np.zeros((self.num_inducing, self.input_dim))
+
+        self.feature = inducingpoint_wrapper(None, Z)
 
         if isinstance(kernel, list):
             self.kernel = ParamList(kernel)
         else:
             self.kernel = kernel
 
-        self.mean_function = mean_function or Zero()
+        self.mean_function = mean_function or Zero(output_dim=self.output_dim)
 
         shape = (self.num_inducing, self.output_dim)
 
@@ -63,10 +63,7 @@ class Layer(Parameterized):
     def _build_predict(self, Xnew, full_cov=False, stochastic=True):
         # Credits to High Salimbeni for this (@hughsalimbeni)
         def f_conditional(Xnew, full_cov=False):
-            mean, var = conditional(Xnew=Xnew,
-                                    X=self.Z,
-                                    kern=self.kernel,
-                                    f=self.q_mu,
+            mean, var = conditional(Xnew, self.feature, self.kernel, self.q_mu,
                                     q_sqrt=self.q_sqrt,
                                     full_cov=full_cov,
                                     white=True)
@@ -75,14 +72,17 @@ class Layer(Parameterized):
 
         def multisample_conditional(Xnew, full_cov=False):
             if full_cov:
-                f = lambda a: f_conditional(a, full_cov=full_cov)
+                def f(a):
+                    m, v = f_conditional(a, full_cov=full_cov)
+                    return  m, tf.transpose(v)
+                #f = lambda a: f_conditional(a, full_cov=full_cov)
                 mean, var = tf.map_fn(f, Xnew, dtype=(settings.tf_float,
-                                                  settings.tf_float))
+                                                      settings.tf_float))
                 return tf.stack(mean), tf.stack(var)
             else:
-                #S, N, D = shape_as_list(Xnew)
+                # S, N, D = shape_as_list(Xnew)
                 s = tf.shape(Xnew)
-                X_flat = tf.reshape(Xnew, [s[0]*s[1], s[2]])
+                X_flat = tf.reshape(Xnew, [s[0] * s[1], s[2]])
                 mean, var = f_conditional(X_flat)
                 return [tf.reshape(m, [s[0], s[1], -1]) for m in [mean, var]]
 
@@ -92,6 +92,7 @@ class Layer(Parameterized):
             mean, var = f_conditional(Xnew, full_cov)
 
         return mean, var
+
 
 def find_weights(input_dim, output_dim, X, multitask=False):
     """
@@ -104,7 +105,7 @@ def find_weights(input_dim, output_dim, X, multitask=False):
 
     elif input_dim > output_dim:
         if multitask:
-            _, _, V = np.linalg.svd(X[:,:-1], full_matrices=False)
+            _, _, V = np.linalg.svd(X[:, :-1], full_matrices=False)
         else:
             _, _, V = np.linalg.svd(X, full_matrices=False)
         W = V[:output_dim, :].T
@@ -115,15 +116,17 @@ def find_weights(input_dim, output_dim, X, multitask=False):
         W = np.concatenate([I, zeros], 1)
 
     if multitask:
-        W = np.concatenate([W, np.zeros((1,W.shape[1]))], axis=0)
+        W = np.concatenate([W, np.zeros((1, W.shape[1]))], axis=0)
 
     return W
+
 
 class InputMixin(object):
     """
     Mixin class for input layers. Implements a single method to compute the
     value of the inputs and inducing inputs for the next layer.
     """
+
     def compute_inputs(self, X, Z, multitask=False):
         W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
@@ -132,35 +135,40 @@ class InputMixin(object):
 
         return X_running, Z_running, W
 
+
 class HiddenMixin(object):
     """
     Mixin class for hidden layers. Implements a single method to compute the
     value of the inputs and inducing inputs for the next layer.
     """
+
     def compute_inputs(self, X, Z, multitask=False):
         W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
-        if isinstance(self.Z, ParamList):
-            Z_running = self.Z[0].value.copy().dot(W)
+        if isinstance(self.feature, ParamList):
+            Z_running = self.feature[0].Z.value.copy().dot(W)
         else:
-            Z_running = self.Z.value.copy().dot(W)
+            Z_running = self.feature.Z.value.copy().dot(W)
 
         X_running = X.copy().dot(W)
 
         return X_running, Z_running, W
+
 
 class OutputMixin(object):
     """
     Mixin class for output layers. Does not implement any methods. Only used
     for type checking.
     """
+
     def compute_inputs(self, X, Z, multitask=False):
         W = find_weights(self.input_dim, self.output_dim, X, multitask)
 
-        Z_running = self.Z.value.copy().dot(W)
+        Z_running = self.feature.Z.value.copy().dot(W)
         X_running = X.copy().dot(W)
 
         return X_running, Z_running, W
+
 
 class InputLayer(Layer, InputMixin):
     @defer_build()
@@ -169,7 +177,7 @@ class InputLayer(Layer, InputMixin):
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
-        self.Z.assign(Z)
+        self.feature.Z.assign(Z)
 
         X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
@@ -187,7 +195,7 @@ class HiddenLayer(Layer, HiddenMixin):
         Initialize Layer and Propagate values of inputs and inducing inputs
         forward
         """
-        self.Z.assign(Z)
+        self.feature.Z.assign(Z)
 
         X_running, Z_running, W = self.compute_inputs(X, Z, multitask)
 
@@ -197,6 +205,7 @@ class HiddenLayer(Layer, HiddenMixin):
 
         return X_running, Z_running
 
+
 class OutputLayer(Layer, OutputMixin):
     @defer_build()
     def initialize_forward(self, X, Z, multitask=False):
@@ -205,5 +214,5 @@ class OutputLayer(Layer, OutputMixin):
         forward
         """
 
-        self.Z.assign(Z)
+        self.feature.Z.assign(Z)
         return (None, None)
