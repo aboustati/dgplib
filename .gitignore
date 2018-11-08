@@ -106,3 +106,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# idea files
+.idea/
+
+# pytest
+./pytest_cache
