@@ -111,4 +111,4 @@ ENV/
 .idea/
 
 # pytest
-./pytest_cache
+.pytest_cache

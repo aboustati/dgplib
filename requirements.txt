@@ -1,0 +1,4 @@
+pytest
+tabulate
+tensorflow==2.0.0-beta1
+git+git://github.com/GPflow/GPflow@awav/gpflow-2.0#egg=gpflow
