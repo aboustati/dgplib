@@ -23,6 +23,7 @@ class Datum:
     output_dim = 3
     num_inducing = 10
     num_data = 20
+    num_tasks = 2
     noise_variance = 1.0
     lengthscale = 2.3
     signal_variance = 0.5
@@ -31,6 +32,12 @@ class Datum:
 
     X = rng.randn(num_data, input_dim)
     Z = rng.randn(num_inducing, input_dim)
+
+    X_idx = rng.randint(0, num_tasks, (num_data, 1))
+    Z_idx = rng.randint(0, num_tasks, (num_inducing, 1))
+
+    multi_X = np.hstack([X, X_idx])
+    multi_Z = np.hstack([Z, Z_idx])
 
 
 @pytest.fixture
@@ -95,6 +102,13 @@ def test_propagate_inputs_and_features():
     X, Z, _ = layer.propagate_inputs_and_features(Datum.X, Datum.Z)
     assert X.shape == (Datum.num_data, Datum.output_dim)
     assert Z.shape == (Datum.num_inducing, Datum.output_dim)
+
+
+def test_propagate_inputs_and_features_with_index_column():
+    layer = create_layer_utility()
+    X, Z, _ = layer.propagate_inputs_and_features(Datum.multi_X, Datum.multi_Z)
+    np.testing.assert_array_equal(Datum.X_idx, X[:, -1:])
+    np.testing.assert_array_equal(Datum.Z_idx, Z[:, -1:])
 
 
 @pytest.mark.parametrize("feature", [None, SharedIndependentMof(InducingPoints(Datum.Z))])

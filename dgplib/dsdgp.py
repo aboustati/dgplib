@@ -1,15 +1,13 @@
 import tensorflow as tf
 
-from gpflow import settings
-
-from gpflow.decors import autoflow, defer_build, params_as_tensors
 from gpflow.mean_functions import Zero
-from gpflow.models import Model
-from gpflow.params import DataHolder, Minibatch
+from gpflow.models import GPModel
 
-from .utils import normal_sample, tile_over_samples
+from .layers import Layer
+from .cascade import Sequential
 
-class DSDGP(Model):
+
+class DSDGP(GPModel):
     """
     Doubly Stochastic Deep Gaussian Process Model.
 
@@ -28,179 +26,143 @@ class DSDGP(Model):
             {http://papers.nips.cc/paper/7045-doubly-stochastic-variational-inference-for-deep-gaussian-processes.pdf}
         }
     """
-    @defer_build()
-    def __init__(self, X, Y, Z, layers, likelihood,
-                 num_latent=None,
-                 minibatch_size=None,
-                 num_samples=1,
-                 mean_function=Zero(),
-                 name=None):
+    def __init__(self, likelihood, Z, layers=None, kernels=None, dims=None,
+                 num_latent=None, num_data=None, multitask=False):
         """
-        - X is a data matrix, size N x D.
-        - Y is a data matrix, size N x R.
-        - Z is a matrix of inducing inputs, size M x D.
-        - layers is an instance of Sequential containing the layer structure of
-        the DGP.
-        - likelihood is an instance of the gpflow likehood object.
-        - num_latent_Y is the number of latent processes to use.
-        - minibatch_size, if not None turns of minibatching with that size.
-        - num_samples is the number of Monte Carlo samples to use.
-        - mean_function is an instance of the gpflow mean_function object,
-        corresponds to the mean function of the final layer.
-        - name is the name of the TensforFlow object.
+        :param likelihood: GPflow likelihood object
+        :param Z: Initial value of inducing inputs
+        :param layers: list of Layer objects
+        :param kernels: list of kernel objects (cannot be used if layers are specified)
+        :param dims: list of tuples for layer dims to be used when kernels are specified
+        :param num_latent: latent dimension of final layer
+        :param num_data: number of data
+        :param multitask: True if multitask model is required (propagates task labels)
         """
+        if kernels is not None:
+            assert len(dims) == len(kernels) + 1
+            assert layers is None, "Cannot initialise with kernels and layers simultaneously"
+            layers = Sequential()
+            for i, kernel in enumerate(kernels):
+                fix_linear_mf = False if i == len(kernels) - 1 else True
+                layer = Layer(
+                    input_dim=dims[i],
+                    output_dim=dims[i+1],
+                    kernel=kernel,
+                    share_Z=False,
+                    fixed_linear_mean_function=fix_linear_mf
+                )
+                layers.add(layer)
 
-        super(DSDGP, self).__init__(name=name)
+        super().__init__(
+            kernel=None,
+            likelihood=likelihood,
+            mean_function=None,
+            num_latent=num_latent
+        )
 
-        assert X.shape[0] == Y.shape[0]
-        assert Z.shape[1] == X.shape[1]
+        # Kernels and mean functions are handled by layers
+        del self.kernel
+        del self.mean_function
 
-        self.num_data, D_X = X.shape
-        self.num_samples = num_samples
-        self.D_Y = num_latent or Y.shape[1]
+        self.num_data = num_data
 
-        self.mean_function = mean_function
-
-        layers.initialize_params(X, Z)#Maybe add initialization method for model
-        if layers._initialized == True:
-            self.layers = layers
-        else:
-            raise ValueError("Layers were not initialized")
+        self.initial_Z = Z
+        self.layers = layers
 
         self.dims = self.layers.get_dims()
+        self._multitask = multitask
 
-        self.likelihood = likelihood
+    @property
+    def initialized(self):
+        return self.layers.initialized
 
-        if minibatch_size is None:
-            X = DataHolder(X)
-            Y = DataHolder(Y)
-        else:
-            X = Minibatch(X, batch_size=minibatch_size, seed=0)
-            Y = Minibatch(Y, batch_size=minibatch_size, seed=0)
+    @property
+    def multitask(self):
+        return self._multitask
 
-        self.X, self.Y = X, Y
+    def initialize_layers_from_data(self, X):
+        self.layers.initialize_params(X, self.initial_Z)
 
-    #Credits to Hugh Salimbeni
-    @params_as_tensors
-    def _propagate(self, Xnew, full_cov=False, num_samples=1):
+    def _propagate(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
         """
         Propagate points Xnew through DGP cascade.
         """
-        Fs = [tile_over_samples(Xnew, num_samples), ]
-        Fmeans, Fvars = [], []
-        for layer in self.layers.layers:
-            mean, var = layer._build_predict(Fs[-1], full_cov, stochastic=True)
-            F = normal_sample(mean, var, full_cov=full_cov)
+        if not self.initialized:
+            raise ValueError("Must initialize before calling this method")
 
-            Fs.append(F)
-            Fmeans.append(mean)
-            Fvars.append(var)
+        F_samples = [tf.stack([Xnew] * num_samples)]
+        F_mus, F_vars = [], []
+        for layer in self.layers.constituents:
+            f_samples, f_mus, f_vars = [], [], []
+            for s in range(num_samples):
+                f_sample, f_mu, f_var = layer.predict_f_samples(F_samples[-1][s, ...], full_cov=full_cov,
+                                                                full_output_cov=full_output_cov, num_samples=1)
 
-        return Fs[1:], Fmeans, Fvars
+                if self.multitask:
+                    f_sample = tf.concat([f_sample, Xnew[None, :, -1:]], axis=-1)
 
-    @params_as_tensors
-    def _build_predict(self, Xnew, full_cov=False, num_samples=1):
-        Fs, Fmeans, Fvars = self._propagate(Xnew, full_cov, num_samples)
+                f_samples.append(f_sample)
+                f_mus.append(f_mu)
+                f_vars.append(f_var)
+
+            F_samples.append(tf.concat(f_samples, axis=0))
+            F_mus.append(tf.stack(f_mus))
+            F_vars.append(tf.stack(f_vars))
+
+        return F_samples[1:], F_mus, F_vars
+
+    def predict_all_layers(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+        """
+        Predicts and produces posterior samples from all layers
+        """
+        Fs, Fmeans, Fvars = self._propagate(Xnew, full_cov, full_output_cov, num_samples)
+        return Fs, Fmeans, Fvars
+
+    def predict_f(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+        """
+        Returns the posterior for the final layer
+        """
+        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, full_output_cov, num_samples)
         return Fmeans[-1], Fvars[-1]
 
-    #Credits to Hugh Salimbeni
-    @params_as_tensors
-    def _build_likelihood(self):
+    def predict_f_samples(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
         """
-        Gives variational bound on the model likelihood.
+        Produces posterior samples from the final layer
         """
+        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, full_output_cov, num_samples)
+        return Fs[-1]
 
-        Fmean, Fvar = self._build_predict(self.X, full_cov=False, num_samples=self.num_samples)
-
-        Y = tile_over_samples(self.Y, self.num_samples)
-
-        f = lambda a: self.likelihood.variational_expectations(a[0], a[1], a[2])
-        var_exp = tf.map_fn(f, (Fmean, Fvar, Y), dtype=settings.float_type)
-        var_exp = tf.stack(var_exp) #SN
-
-        var_exp = tf.reduce_mean(var_exp, 0) # S,N -> N. Average over samples
-        L = tf.reduce_sum(var_exp) # N -> scalar. Sum over data (minibatch)
-
-        KL = 0.
-        for layer in self.layers.layers:
-            KL += layer.build_prior_KL(K=None)
-
-        scale = tf.cast(self.num_data, settings.float_type)
-        scale /= tf.cast(tf.shape(self.X)[0], settings.float_type)  # minibatch size
-        return L * scale - KL
-
-    #Credits to gpflow dev team
-    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
-    def predict_f(self, Xnew, num_samples):
+    def prior_kl(self):
         """
-        Compute the mean and variance of the latent function(s) for the final
-        layer at the points Xnew.
+        KL(q(u)||p(u))
         """
-        return self._build_predict(Xnew, full_cov=False, num_samples=num_samples)
+        return tf.reduce_sum([l.prior_kl() for l in self.layers.constituents])
 
-    #Credits to gpflow dev team
-    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
-    def predict_f_full_cov(self, Xnew, num_samples):
+    def log_likelihood(self, X: tf.Tensor, Y:tf. Tensor, num_samples: int = 1) -> tf.Tensor:
         """
-        Compute the mean and covariance matrix of the latent function(s) for
-        the final layer at the points Xnew.
+        Evaluates bound on the log marginal likelihood
         """
-        return self._build_predict(Xnew, full_cov=True, num_samples=num_samples)
+        f_mean, f_var = self.predict_f(X, full_cov=False, full_output_cov=False,
+                                       num_samples=num_samples)  # SxNxD, SXNxD
 
+        var_exp = [
+            self.likelihood.variational_expectations(f_mean[s, :, :], f_var[s, :, :], Y) for s in range(num_samples)
+        ]
+        var_exp = tf.reduce_mean(tf.stack(var_exp), axis=0)
+        assert var_exp.numpy().shape == (X.shape[0], 1)
+        if self.num_data is not None:
+            num_data = tf.cast(self.num_data, var_exp.dtype)
+            minibatch_size = tf.cast(tf.shape(X)[0], var_exp.dtype)
+            scale = num_data / minibatch_size
+        else:
+            scale = tf.cast(1.0, var_exp.dtype)
 
-    #Credits to Hugh Salimbeni
-    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
-    def predict_all_layers(self, Xnew, num_samples):
-        """
-        Compute the mean and variance of the latent function(s) for for all
-        layers at the points Xnew.
-        """
-        return self._propagate(Xnew, full_cov=False, num_samples=num_samples)
+        var_exp = var_exp * scale
 
-    #Credits to Hugh Salimbeni
-    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
-    def predict_all_layers_full_cov(self, Xnew, num_samples):
-        """
-        Compute the mean and covariance matrix of the latent function(s) for
-        all layers at the points Xnew.
-        """
-        return self._propagate(Xnew, full_cov=True, num_samples=num_samples)
+        return tf.reduce_sum(var_exp) - self.prior_kl()
 
-    #Credits to gpflow dev team
-    @autoflow((settings.float_type, [None, None]), (tf.int32, []))
-    def predict_f_samples(self, Xnew, num_samples):
+    def elbo(self, X: tf.Tensor, Y: tf.Tensor, num_samples: int = 1) -> tf.Tensor:
         """
-        Produce samples from the posterior latent function(s) for the final
-        layer at the points Xnew.
+        This returns the evidence lower bound (ELBO) of the log marginal likelihood.
         """
-        mu, var = self._build_predict(Xnew, full_cov=True, num_samples=1)
-        mu, var = mu[0,:,:], var[0,:,:]
-        jitter = tf.eye(tf.shape(mu)[0], dtype=settings.float_type) * settings.numerics.jitter_level
-        samples = []
-        for i in range(self.D_Y):
-            L = tf.cholesky(var[:, :, i] + jitter)
-            shape = tf.stack([tf.shape(L)[0], num_samples])
-            V = tf.random_normal(shape, dtype=settings.float_type)
-            samples.append(mu[:, i:i + 1] + tf.matmul(L, V))
-        return tf.transpose(tf.stack(samples))
-
-    #Credits to gpflow dev team
-    @autoflow((settings.float_type, [None, None]))
-    def predict_y(self, Xnew):
-        """
-        Compute the mean and variance of held-out data at the points Xnew
-        """
-        pred_f_mean, pred_f_var = self._build_predict(Xnew)
-        return self.likelihood.predict_mean_and_var(pred_f_mean, pred_f_var)
-
-    #Credits to gpflow dev team
-    # @autoflow((settings.float_type, [None, None]), (settings.float_type, [None, None]))
-    # def predict_density(self, Xnew, Ynew):
-        # """
-        # Compute the (log) density of the data Ynew at the points Xnew
-        # Note that this computes the log density of the data individually,
-        # ignoring correlations between them. The result is a matrix the same
-        # shape as Ynew containing the log densities.
-        # """
-        # pred_f_mean, pred_f_var = self._build_predict(Xnew)
-        # return self.likelihood.predict_density(pred_f_mean, pred_f_var, Ynew)
+        return -self.neg_log_marginal_likelihood(X, Y, num_samples)

@@ -1,151 +1,126 @@
-import unittest
+import pytest
 
 import numpy as np
-import gpflow
 
-from dgplib.layers import InputLayer, OutputLayer
+from dgplib.layers import Layer
 from dgplib.cascade import Sequential
 
 from dgplib import DSDGP
 
-from gpflow.decors import defer_build, name_scope
-from gpflow.kernels import RBF, White
+import gpflow
+from gpflow.kernels import RBF
 from gpflow.likelihoods import Gaussian
-from gpflow.mean_functions import Linear
 
-class TestDSDGP(unittest.TestCase):
-    def setUp(self):
-        self.rng = np.random.RandomState(42)
 
-        self.Ns = 300
-        #self.Xs = np.linspace(-0.5, 1.5, Ns)[:, None]
+rng = np.random.RandomState(42)
 
-        self.N, self.M = 50, 25
-        self.X = self.rng.uniform(0, 1, self.N)[:, None]
-        self.Z = self.rng.uniform(0, 1, self.M)[:, None]
-        f_step = lambda x: 0. if x<0.5 else 1.
 
-        self.Y = np.reshape([f_step(x) for x in self.X], self.X.shape) \
-                 + self.rng.randn(*self.X.shape)*1e-2
+class Datum:
+    num_data = 100
+    num_inducing = 10
+    num_samples = 4
+    num_tasks = 2
+    X_dim, Y_dim = 2, 1
+    inner_dim = 3
+    X = rng.randn(num_data, X_dim)
+    Y = rng.randn(num_data, Y_dim)
+    Z = rng.randn(num_inducing, X_dim)
 
-    def test_contructor(self):
-        input_layer = InputLayer(input_dim=1, output_dim=1,
-                                 num_inducing=self.M, kernel=RBF(1)+White(1))
-        output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=self.M, kernel=RBF(1)+White(1))
+    X_idx = rng.randint(0, num_tasks, (num_data, 1))
+    Z_idx = rng.randint(0, num_tasks, (num_inducing, 1))
 
-        seq = Sequential([input_layer, output_layer])
+    multi_X = np.hstack([X, X_idx])
+    multi_Z = np.hstack([Z, Z_idx])
+    multi_Y = np.hstack([Y, X_idx])
 
-        try:
-            model = DSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq, likelihood=Gaussian())
-        except Exception as e:
-            print(e)
-            self.fail('DSDGP contructor fails')
 
-    @name_scope('dsdgp_optimizer')
-    def test_optimize(self):
-        with defer_build():
-            input_layer = InputLayer(input_dim=1, output_dim=1,
-                                     num_inducing=self.M, kernel=RBF(1)+White(1))
-            output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                       num_inducing=self.M, kernel=RBF(1)+White(1))
+def create_layer_utility(input_dim, output_dim):
+    """
+    Utility function to create layer object.
+    """
+    kernel = gpflow.kernels.mo_kernels.SharedIndependentMok(
+        RBF(variance=1.0, lengthscale=1.0, active_dims=range(Datum.X_dim)), output_dimensionality=output_dim
+    )
+    layer = Layer(input_dim=input_dim, output_dim=output_dim, kernel=kernel, num_inducing=Datum.num_inducing)
+    return layer
 
-            seq = Sequential([input_layer, output_layer])
 
-            model = DSDGP(X=self.X, Y=self.Y, Z=self.Z, layers=seq, likelihood=Gaussian())
-        model.compile()
-        before = model.compute_log_likelihood()
-        opt = gpflow.train.AdamOptimizer(0.01)
-        opt.minimize(model, maxiter=100)
-        after = model.compute_log_likelihood()
-        self.assertGreaterEqual(after, before)
+@pytest.fixture
+def model():
+    likelihood = Gaussian()
+    input_layer = create_layer_utility(Datum.X_dim, Datum.inner_dim)
+    output_layer = create_layer_utility(Datum.inner_dim, Datum.Y_dim)
 
-class TestMethods(unittest.TestCase):
-    def prepare(self):
-        N = 100
-        M = 10
-        rng = np.random.RandomState(42)
-        X = rng.randn(N, 2)
-        Y = rng.randn(N, 1)
-        Z = rng.randn(M, 2)
-        Xs = rng.randn(M, 2)
-        lik = Gaussian()
-        input_layer = InputLayer(input_dim=2, output_dim=1,
-                                 num_inducing=M, kernel=RBF(2)+White(2),
-                                 mean_function=Linear(A=np.ones((2,1))))
-        output_layer = OutputLayer(input_dim=1, output_dim=1,
-                                   num_inducing=M, kernel=RBF(1)+White(1))
+    seq = Sequential([input_layer, output_layer])
 
-        seq = Sequential([input_layer, output_layer])
+    model = DSDGP(Z=Datum.Z, layers=seq, likelihood=likelihood)
+    return model
 
-        model = DSDGP(X=X, Y=Y, Z=Z, layers=seq, likelihood=lik)
-        model.compile()
-        return model, Xs
 
-    def test_build(self):
-        model, _ = self.prepare()
-        self.assertEqual(model.is_built_coherence(), gpflow.Build.YES)
+@pytest.fixture
+def multitask_model():
+    likelihood = Gaussian()
+    input_layer = create_layer_utility(Datum.X_dim, Datum.inner_dim)
+    output_layer = create_layer_utility(Datum.inner_dim, Datum.Y_dim)
 
-    def test_predict_f(self):
-        model, Xs = self.prepare()
-        mu, sigma = model.predict_f(Xs, 1)
-        with self.subTest():
-            self.assertEqual(mu.shape, sigma.shape)
-        with self.subTest():
-            self.assertEqual(mu.shape, (1, 10, 1))
-        with self.subTest():
-            np.testing.assert_array_less(np.full_like(sigma, -1e-6), sigma)
+    seq = Sequential([input_layer, output_layer])
 
-    def test_predict_f_full_cov(self):
-        model, Xs = self.prepare()
-        mu, sigma = model.predict_f_full_cov(Xs, 1)
-        with self.subTest():
-            self.assertEqual(mu.shape, (1, 10, 1))
-        with self.subTest():
-            self.assertEqual(sigma.shape, (1, 10, 10, 1))
-        with self.subTest():
-            np.testing.assert_array_less(np.full_like(sigma, -1e-6), sigma)
+    model = DSDGP(Z=Datum.multi_Z, layers=seq, likelihood=likelihood, multitask=True)
+    return model
 
-    def test_predict_all_layers(self):
-        model, Xs = self.prepare()
-        fs, fmeans, fvars = model.predict_all_layers(Xs, 1)
-        dims = [1, 1]
-        for f, m, v, i in zip(fs, fmeans, fvars, dims):
-            with self.subTest():
-                self.assertEqual(m.shape, f.shape)
-            with self.subTest():
-                self.assertEqual(m.shape, v.shape)
-            with self.subTest():
-                self.assertEqual(m.shape, (1, 10, i))
-            with self.subTest():
-                np.testing.assert_array_less(np.full_like(v, -1e-6), v)
 
-    def test_predict_all_layers_full_cov(self):
-        model, Xs = self.prepare()
-        fs, fmeans, fvars = model.predict_all_layers_full_cov(Xs, 1)
-        dims = [1, 1]
-        for f, m, v, i in zip(fs, fmeans, fvars, dims):
-            with self.subTest():
-                self.assertEqual(f.shape, (1, 10, i))
-            with self.subTest():
-                self.assertEqual(m.shape, (1, 10, i))
-            with self.subTest():
-                self.assertEqual(v.shape, (1, 10, 10, 1))
-            with self.subTest():
-                np.testing.assert_array_less(np.full_like(v, -1e-6), v)
+@pytest.mark.parametrize('full_cov', [True, False])
+def test_predict_all_layers(model, full_cov):
+    """
+    Test the predict all layers method which is called by all other predict methods.
+    """
+    with pytest.raises(ValueError):
+        model.predict_all_layers(Xnew=Datum.X, num_samples=Datum.num_samples, full_cov=full_cov)
 
-    def test_predict_f_samples(self):
-        model, Xs = self.prepare()
-        fs = model.predict_f_samples(Xs, 10)
-        with self.subTest():
-            self.assertEqual(fs.shape, (10, 10, 1))
+    model.initialize_layers_from_data(Datum.X)
 
-    def test_predict_y(self):
-        model, Xs = self.prepare()
-        mu, sigma = model.predict_y(Xs)
-        with self.subTest():
-            self.assertEqual(mu.shape, sigma.shape)
-        with self.subTest():
-            self.assertEqual(mu.shape, (1, 10, 1))
-        with self.subTest():
-            np.testing.assert_array_less(np.full_like(sigma, -1e-6), sigma)
+    fs, fmeans, fvars = model.predict_all_layers(Xnew=Datum.X, num_samples=Datum.num_samples, full_cov=full_cov)
+    dims = [Datum.inner_dim, Datum.Y_dim]
+    for f, m, v, i in zip(fs, fmeans, fvars, dims):
+        assert m.shape == f.shape
+        if full_cov:
+            assert v.shape == (Datum.num_samples, i, Datum.num_data, Datum.num_data)
+        else:
+            assert v.shape == m.shape
+        assert m.shape == (Datum.num_samples, Datum.num_data, i)
+        np.testing.assert_array_less(np.full_like(v, -1e-6), v)
+
+
+@pytest.mark.parametrize('full_cov', [True, False])
+def test_predict_all_layers_multitask(multitask_model, full_cov):
+    """
+    Test the predict all layers method for multitask model which is called by all other predict methods.
+    """
+    with pytest.raises(ValueError):
+        multitask_model.predict_all_layers(Xnew=Datum.multi_X, num_samples=Datum.num_samples, full_cov=full_cov)
+
+    multitask_model.initialize_layers_from_data(Datum.multi_X)
+
+    fs, fmeans, fvars = multitask_model.predict_all_layers(Xnew=Datum.multi_X, num_samples=Datum.num_samples, full_cov=full_cov)
+    dims = [Datum.inner_dim, Datum.Y_dim]
+    for f, m, v, i in zip(fs, fmeans, fvars, dims):
+        print(m.shape)
+        assert f.shape == (Datum.num_samples, Datum.num_data, i + 1)
+        if full_cov:
+            assert v.shape == (Datum.num_samples, i, Datum.num_data, Datum.num_data)
+        else:
+            assert v.shape == m.shape
+        assert m.shape == (Datum.num_samples, Datum.num_data, i)
+        np.testing.assert_array_less(np.full_like(v, -1e-6), v)
+
+
+def test_log_likelihood(model):
+    """
+    Tests the log_likelihood method.
+    """
+    model.initialize_layers_from_data(Datum.X)
+
+    likelihood_value = model.log_likelihood(Datum.X, Datum.Y, Datum.num_samples)
+
+    assert np.isscalar(likelihood_value.numpy())
+

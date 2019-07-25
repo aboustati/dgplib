@@ -183,9 +183,12 @@ class Layer(Module):
         :param Z: inducing inputs
         """
         W = find_linear_mf_weights(self.input_dim, self.output_dim, X)
-
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
+
+        if X.shape[1] - self.input_dim == 1:
+            Z_running[:, -1] = Z[:, -1]
+            X_running[:, -1] = X[:, -1]
 
         return X_running, Z_running, W
 
