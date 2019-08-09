@@ -1,5 +1,6 @@
 from gpflow.base import Module
 from .layers import Layer
+from .multiprocess_layers import MultiprocessLayer
 
 
 class Sequential(Module):
@@ -36,7 +37,7 @@ class Sequential(Module):
         """
         Checks if input to the cascade object is valid
         """
-        assert isinstance(layer, Layer)
+        assert isinstance(layer, (Layer, MultiprocessLayer))
 
         if self.initialized:
             raise ValueError('Cannot add more layers to initialized model')
@@ -71,7 +72,7 @@ class Sequential(Module):
         X_next, Z_next, W = self.constituents[0].propagate_inputs_and_features(X, Z)
         self.constituents[0].initialize_features(Z_current)
         if self.constituents[0].fixed_linear_mean_function:
-            self.constituents[0].initialize_mean_function_weights(W)
+            self.constituents[0].initialize_linear_mean_function_weights(W)
         for layer in self.constituents[1:]:
             Z_current = Z_next
             X_next, Z_next, W = layer.propagate_inputs_and_features(X_next, Z_current)

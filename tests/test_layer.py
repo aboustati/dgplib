@@ -71,15 +71,14 @@ def test_kl(reference_model):
 
 
 @pytest.mark.parametrize("full_cov", [True, False])
-@pytest.mark.parametrize("full_output_cov", [True, False])
-def test_predict_f(reference_model, full_cov, full_output_cov):
+def test_predict_f(reference_model, full_cov):
     layer = create_layer_utility(feature=SharedIndependentMof(InducingPoints(Datum.Z)))
     W = find_linear_mf_weights(input_dim=Datum.input_dim, output_dim=Datum.output_dim, X=Datum.X)
     layer.initialize_linear_mean_function_weights(W=W)
 
     X = tf.cast(tf.convert_to_tensor(Datum.X), dtype=gpflow.default_float())
-    layer_mu, layer_sigma = layer.predict_f(X, full_cov, full_output_cov)
-    reference_mu, reference_sigma = reference_model.predict_f(X, full_cov, full_output_cov)
+    layer_mu, layer_sigma = layer.predict_f(X, full_cov)
+    reference_mu, reference_sigma = reference_model.predict_f(X, full_cov)
 
     np.testing.assert_allclose(layer_mu, reference_mu)
     np.testing.assert_allclose(layer_sigma, reference_sigma)

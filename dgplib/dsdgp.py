@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-from gpflow.mean_functions import Zero
 from gpflow.models import GPModel
 
 from .layers import Layer
@@ -27,7 +26,7 @@ class DSDGP(GPModel):
         }
     """
     def __init__(self, likelihood, Z, layers=None, kernels=None, dims=None,
-                 num_latent=None, num_data=None, multitask=False):
+                 num_latent=1, num_data=None, multitask=False):
         """
         :param likelihood: GPflow likelihood object
         :param Z: Initial value of inducing inputs
@@ -83,7 +82,7 @@ class DSDGP(GPModel):
     def initialize_layers_from_data(self, X):
         self.layers.initialize_params(X, self.initial_Z)
 
-    def _propagate(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+    def _propagate(self, Xnew, full_cov=False, num_samples=1):
         """
         Propagate points Xnew through DGP cascade.
         """
@@ -95,8 +94,7 @@ class DSDGP(GPModel):
         for layer in self.layers.constituents:
             f_samples, f_mus, f_vars = [], [], []
             for s in range(num_samples):
-                f_sample, f_mu, f_var = layer.predict_f_samples(F_samples[-1][s, ...], full_cov=full_cov,
-                                                                full_output_cov=full_output_cov, num_samples=1)
+                f_sample, f_mu, f_var = layer.predict_f_samples(F_samples[-1][s, ...], full_cov=full_cov, num_samples=1)
 
                 if self.multitask:
                     f_sample = tf.concat([f_sample, Xnew[None, :, -1:]], axis=-1)
@@ -111,25 +109,25 @@ class DSDGP(GPModel):
 
         return F_samples[1:], F_mus, F_vars
 
-    def predict_all_layers(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+    def predict_all_layers(self, Xnew, full_cov=False, num_samples=1):
         """
         Predicts and produces posterior samples from all layers
         """
-        Fs, Fmeans, Fvars = self._propagate(Xnew, full_cov, full_output_cov, num_samples)
+        Fs, Fmeans, Fvars = self._propagate(Xnew, full_cov, num_samples)
         return Fs, Fmeans, Fvars
 
-    def predict_f(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+    def predict_f(self, Xnew, full_cov=False, num_samples=1):
         """
         Returns the posterior for the final layer
         """
-        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, full_output_cov, num_samples)
+        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, num_samples)
         return Fmeans[-1], Fvars[-1]
 
-    def predict_f_samples(self, Xnew, full_cov=False, full_output_cov=False, num_samples=1):
+    def predict_f_samples(self, Xnew, full_cov=False, num_samples=1):
         """
         Produces posterior samples from the final layer
         """
-        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, full_output_cov, num_samples)
+        Fs, Fmeans, Fvars = self.predict_all_layers(Xnew, full_cov, num_samples)
         return Fs[-1]
 
     def prior_kl(self):
@@ -142,14 +140,13 @@ class DSDGP(GPModel):
         """
         Evaluates bound on the log marginal likelihood
         """
-        f_mean, f_var = self.predict_f(X, full_cov=False, full_output_cov=False,
-                                       num_samples=num_samples)  # SxNxD, SXNxD
+        f_mean, f_var = self.predict_f(X, full_cov=False, num_samples=num_samples)  # SxNxD, SXNxD
 
         var_exp = [
             self.likelihood.variational_expectations(f_mean[s, :, :], f_var[s, :, :], Y) for s in range(num_samples)
         ]
         var_exp = tf.reduce_mean(tf.stack(var_exp), axis=0)
-        assert var_exp.numpy().shape == (X.shape[0], 1)
+        assert var_exp.shape == (X.shape[0], self.num_latent)
         if self.num_data is not None:
             num_data = tf.cast(self.num_data, var_exp.dtype)
             minibatch_size = tf.cast(tf.shape(X)[0], var_exp.dtype)

@@ -128,13 +128,12 @@ class Layer(Module):
 
         return gauss_kl(self.q_mu, self.q_sqrt, K)
 
-    def predict_f(self, Xnew: tf.Tensor, full_cov=False, full_output_cov=False) -> Tuple[tf.Tensor, tf.Tensor]:
+    def predict_f(self, Xnew: tf.Tensor, full_cov=False) -> Tuple[tf.Tensor, tf.Tensor]:
         """
         Returns the posterior mean and covariance at Xnew
 
         :param Xnew: input (tf.Tensor or numpy array)
         :param full_cov: True if full covariance required
-        :param full_output_cov: True if full ouput covariance required
         """
         q_mu = self.q_mu
         q_sqrt = self.q_sqrt
@@ -146,19 +145,18 @@ class Layer(Module):
             q_sqrt=q_sqrt,
             full_cov=full_cov,
             white=self.whiten,
-            full_output_cov=full_output_cov
+            full_output_cov=False
         )
 
         return mu + self.mean_function(Xnew), var
 
-    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False, full_output_cov=False) -> tf.Tensor:
+    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False) -> tf.Tensor:
         """
         Returns sample from GP posterior at Xnew
 
         :param Xnew: input (tf.Tensor or numpy array)
         :param num_samples: number of MC samples
         :param full_cov: True if full covariance required
-        :param full_output_cov: True if full output covariance required
         """
         q_mu = self.q_mu
         q_sqrt = self.q_sqrt
@@ -170,7 +168,7 @@ class Layer(Module):
             q_sqrt=q_sqrt,
             full_cov=full_cov,
             white=self.whiten,
-            full_output_cov=full_output_cov,
+            full_output_cov=False,
             num_samples=num_samples
         )
 
@@ -183,12 +181,13 @@ class Layer(Module):
         :param Z: inducing inputs
         """
         W = find_linear_mf_weights(self.input_dim, self.output_dim, X)
+
         Z_running = Z.copy().dot(W)
         X_running = X.copy().dot(W)
 
         if X.shape[1] - self.input_dim == 1:
-            Z_running[:, -1] = Z[:, -1]
-            X_running[:, -1] = X[:, -1]
+            Z_running = np.hstack([Z_running, Z[:, -1:]])
+            X_running = np.hstack([X_running, X[:, -1:]])
 
         return X_running, Z_running, W
 
@@ -203,7 +202,7 @@ class Layer(Module):
             else:
                 self.feature = SeparateIndependentMof([InducingPoints(Z) for _ in range(self.output_dim)])
         else:
-            raise ValueError("Features already intialized")
+            raise ValueError("Features already initialized")
 
     def initialize_linear_mean_function_weights(self, W):
         """
@@ -213,5 +212,6 @@ class Layer(Module):
         if self.fixed_linear_mean_function:
             self.mean_function.A = Parameter(W)
             self.mean_function.A.trainable = False
+            self.mean_function.b.trainable = False
         else:
             raise ValueError("Mean function is not specified as fixed on construction.")
