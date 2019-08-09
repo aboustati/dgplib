@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import abc
+import numpy as np
 import tensorflow as tf
 
 from gpflow.base import Module
@@ -25,12 +26,14 @@ class MultiprocessLayer(Module):
         if mean_functions is None:
             mean_functions = [None] * self.num_sublayers
 
+        self.fixed_linear_mean_function = fixed_linear_mean_function
+
         sublayers = []
         for i in range(self.num_sublayers):
             sublayer = Layer(input_dim=self.input_dim, output_dim=self.sublayer_output_dim, kernel=kernels[i],
                              feature=feature, num_inducing=num_inducing, share_Z=share_Z,
-                             fixed_linear_mean_function=fixed_linear_mean_function, mean_function=mean_functions[i],
-                             whiten=whiten, q_diag=q_diag, q_mu=q_mu, q_sqrt=q_sqrt)
+                             fixed_linear_mean_function=self.fixed_linear_mean_function,
+                             mean_function=mean_functions[i], whiten=whiten, q_diag=q_diag, q_mu=q_mu, q_sqrt=q_sqrt)
             sublayers.append(sublayer)
 
         self.sublayers = sublayers
@@ -47,20 +50,21 @@ class MultiprocessLayer(Module):
         return KL
 
     @abc.abstractmethod
-    def predict_f(self, Xnew: tf.Tensor, full_cov=False, full_output_cov=False) -> Tuple[tf.Tensor, tf.Tensor]:
+    def predict_f(self, Xnew: tf.Tensor, full_cov=False) -> Tuple[tf.Tensor, tf.Tensor]:
         pass
 
     @abc.abstractmethod
-    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False, full_output_cov=False) -> tf.Tensor:
+    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False) -> tf.Tensor:
         pass
 
+    @abc.abstractmethod
     def propagate_inputs_and_features(self, X, Z):
         """
         Returns an initialization for the data and inducing inputs for the consequent layer
         :param X: inputs
         :param Z: inducing inputs
         """
-        return self.sublayers[0].propagate_inputs_and_features(X, Z)
+        pass
 
     def initialize_features(self, Z):
         """
@@ -82,4 +86,106 @@ class MultiprocessLayer(Module):
 class ConcatinativeMultiprocessLayer(MultiprocessLayer):
     @property
     def output_dim(self):
-        self.sublayer_output_dim * self.num_sublayers
+        return self.sublayer_output_dim * self.num_sublayers
+
+    def propagate_inputs_and_features(self, X, Z):
+        """
+        Returns an initialization for the data and inducing inputs for the consequent layer
+        :param X: inputs
+        :param Z: inducing inputs
+        """
+        X_running, Z_running = [], []
+        for sublayer in self.sublayers:
+            X_sub, Z_sub, W = sublayer.propagate_inputs_and_features(X, Z)  # NxD_sub(+1), MxD_sub(+1), D_in(+1)xD_sub
+            X_running.append(X_sub)
+            Z_running.append(Z_sub)
+
+        # Hack to make propagation of index column possible
+        if X.shape[1] - self.input_dim == 1:
+            X_running = np.hstack([xx[:, :-1] for xx in X_running] + [X[:, -1:]])
+            Z_running = np.hstack([zz[:, :-1] for zz in Z_running] + [Z[:, -1:]])
+        else:
+            X_running = np.hstack(X_running)
+            Z_running = np.hstack(Z_running)
+
+        return X_running, Z_running, W
+
+    def predict_f(self, Xnew: tf.Tensor, full_cov=False):
+        mu, var = [], []
+        for sublayer in self.sublayers:
+            m, v = sublayer.predict_f(Xnew=Xnew, full_cov=full_cov)
+            mu.append(m)
+            var.append(v)
+        mu = tf.concat(mu, axis=-1)
+        if full_cov:
+            var = tf.concat(var, axis=1)
+        else:
+            var = tf.concat(var, axis=-1)
+
+        return mu, var
+
+    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False):
+        samples, mu, var = [], [], []
+        for sublayer in self.sublayers:
+            s, m, v = sublayer.predict_f_samples(Xnew=Xnew, num_samples=num_samples, full_cov=full_cov)
+            samples.append(s)
+            mu.append(m)
+            var.append(v)
+        samples = tf.concat(samples, axis=-1)
+        mu = tf.concat(mu, axis=-1)
+        if full_cov:
+            var = tf.concat(var, axis=1)
+        else:
+            var = tf.concat(var, axis=-1)
+
+        return samples, mu, var
+
+
+class AdditiveMultiprocessLayer(MultiprocessLayer):
+    @property
+    def output_dim(self):
+        return self.sublayer_output_dim
+
+    def propagate_inputs_and_features(self, X, Z):
+        """
+        Returns an initialization for the data and inducing inputs for the consequent layer
+        :param X: inputs
+        :param Z: inducing inputs
+        """
+        X_running, Z_running = [], []
+        for sublayer in self.sublayers:
+            X_sub, Z_sub, W = sublayer.propagate_inputs_and_features(X, Z)  # NxD_sub(+1), MxD_sub(+1), D_in(+1)xD_sub
+            X_running.append(X_sub)
+            Z_running.append(Z_sub)
+
+        X_running = np.sum(np.stack(X_running, axis=0), axis=0)
+        Z_running = np.sum(np.stack(Z_running, axis=0), axis=0)
+        if X.shape[1] - self.input_dim == 1:
+            X_running = np.hstack([X_running, X[:, -1:]])
+            Z_running = np.hstack([Z_running, Z[:, -1:]])
+
+        return X_running, Z_running, W
+
+    def predict_f(self, Xnew: tf.Tensor, full_cov=False):
+        mu, var = [], []
+        for sublayer in self.sublayers:
+            m, v = sublayer.predict_f(Xnew=Xnew, full_cov=full_cov)
+            mu.append(m)
+            var.append(v)
+        mu = tf.reduce_sum(tf.stack(mu), axis=0)
+        var = tf.reduce_sum(tf.stack(var), axis=0)
+
+        return mu, var
+
+    def predict_f_samples(self, Xnew: tf.Tensor, num_samples=1, full_cov=False):
+        samples, mu, var = [], [], []
+        for sublayer in self.sublayers:
+            s, m, v = sublayer.predict_f_samples(Xnew=Xnew, num_samples=num_samples,  full_cov=full_cov)
+            samples.append(s)
+            mu.append(m)
+            var.append(v)
+        samples = tf.reduce_sum(tf.stack(samples), axis=0)
+        mu = tf.concat(mu, axis=0)
+        var = tf.reduce_sum(tf.stack(var), axis=0)
+
+        return samples, mu, var
