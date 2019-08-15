@@ -11,7 +11,7 @@ from .layers import Layer
 
 class MultiprocessLayer(Module):
     """
-    Inherits from Layer class. Can handle outputs from different priors.
+    Abstract class defining multiprocess layer construction.
     """
 
     def __init__(self, input_dim, sublayer_output_dim, kernels, feature=None,
@@ -83,7 +83,7 @@ class MultiprocessLayer(Module):
             sublayer.initialize_linear_mean_function_weights(W)
 
 
-class ConcatinativeMultiprocessLayer(MultiprocessLayer):
+class ConcatinativeMultiprocessLayerMixin:
     @property
     def output_dim(self):
         return self.sublayer_output_dim * self.num_sublayers
@@ -141,7 +141,7 @@ class ConcatinativeMultiprocessLayer(MultiprocessLayer):
         return samples, mu, var
 
 
-class AdditiveMultiprocessLayer(MultiprocessLayer):
+class AdditiveMultiprocessLayerMixin:
     @property
     def output_dim(self):
         return self.sublayer_output_dim
@@ -189,3 +189,11 @@ class AdditiveMultiprocessLayer(MultiprocessLayer):
         var = tf.reduce_sum(tf.stack(var), axis=0)
 
         return samples, mu, var
+
+
+class ConcatinativeMultiprocessLayer(ConcatinativeMultiprocessLayerMixin, MultiprocessLayer):
+    pass
+
+class AdditiveMultiprocessLayer(AdditiveMultiprocessLayerMixin, MultiprocessLayer):
+    pass
+
