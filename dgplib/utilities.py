@@ -105,3 +105,12 @@ def _get_leaf_components(input: tf.Module, prefix: Optional[str] = None):
 
     return var_dict
 
+
+def set_trainable(model: tf.Module, flag: bool = False):
+    """
+    Bug fix from GPflow
+    Set trainable flag for all `tf.Variable`s and `gpflow.Parameter`s in a module.
+    """
+    for variable in model.variables:
+        variable._trainable = flag
+
