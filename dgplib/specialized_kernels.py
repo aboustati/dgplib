@@ -30,12 +30,15 @@ class SwitchedKernel(Combination):
         if not presliced:
             X, Y = self.slice(X, Y)
 
-        idx_X_parts = tf.dynamic_partition(tf.range(0, tf.size(idx_X)), idx_X, self.output_dim)
-        idx_Y_parts = tf.dynamic_partition(tf.range(0, tf.size(idx_Y)), idx_Y, self.output_dim)
+        idx_X_parts = tf.dynamic_partition(tf.range(0, tf.shape(idx_X)[0]), idx_X, self.output_dim)
+        idx_Y_parts = tf.dynamic_partition(tf.range(0, tf.shape(idx_Y)[0]), idx_Y, self.output_dim)
 
         Ks = []
         for k, p, p2 in zip(self.kernels, idx_X_parts, idx_Y_parts):
-            gram = k.K(tf.gather(X, p), tf.gather(Y, p2))
+            X_gathered = tf.gather(X, p, axis=0, batch_dims=None)
+            Y_gathered = tf.gather(Y, p2, axis=0, batch_dims=None)
+
+            gram = k.K(X_gathered, Y_gathered)
             Ks.append(gram)
 
         N = tf.shape(X)[0]
@@ -56,6 +59,6 @@ class SwitchedKernel(Combination):
 
         ind_X_parts = tf.dynamic_partition(tf.range(0, tf.size(idx_X)), idx_X, self.output_dim)
 
-        Ks = [k.K_diag(tf.gather(X, p)) for k, p in zip(self.kernels, ind_X_parts)]
+        Ks = [k.K_diag(tf.gather(X, p, axis=0)) for k, p in zip(self.kernels, ind_X_parts)]
 
         return tf.dynamic_stitch(ind_X_parts, Ks)
