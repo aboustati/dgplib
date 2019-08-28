@@ -118,7 +118,7 @@ class ConcatinativeMultiprocessLayerMixin:
             var.append(v)
         mu = tf.concat(mu, axis=-1)
         if full_cov:
-            var = tf.concat(var, axis=1)
+            var = tf.concat(var, axis=0)
         else:
             var = tf.concat(var, axis=-1)
 
