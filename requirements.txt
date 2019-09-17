@@ -1,0 +1,3 @@
+pytest
+tabulate
+git+git://github.com/aboustati/GPflow@ayman/gpflow-2.0-dgplib-compatible#egg=gpflow

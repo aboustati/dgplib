@@ -1,10 +1,6 @@
-import unittest
+import gpflow
+import numpy as np
+import warnings
 
-from . import test_layer
-from . import test_cascade
-
-def test_module_suite():
-    loader = unittest.TestLoader()
-    #suite = loader.loadTestsFromModule(test_layer)
-    suite = loader.discover('./')
-    return suite
+gpflow.config.set_default_float(np.float64)
+warnings.filterwarnings('ignore')

@@ -1,179 +1,105 @@
-import unittest
+import pytest
 
 import numpy as np
 
-from dgplib.layers import InputLayer, HiddenLayer, OutputLayer
-from dgplib.cascade import Sequential, MultitaskSequential
+from dgplib.layers import Layer
+from dgplib.cascade import Sequential
 
-from gpflow.decors import defer_build
+import gpflow
 from gpflow.kernels import RBF
-from gpflow.params import ParamList
-
-class SequentialTest(unittest.TestCase):
-    def test_initialization_with_empty(self):
-        seq = Sequential()
-        self.assertIsInstance(seq.layers, ParamList)
-
-    @defer_build()
-    def test_initialization_with_list(self):
-        input_layer = InputLayer(2, 2, 10, RBF(2))
-        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
-        hidden_layer_2 = HiddenLayer(2, 2, 10, RBF(2))
-        output_layer = OutputLayer(2, 1, 10, RBF(2))
-
-        with self.subTest():
-            layer_list = [input_layer, hidden_layer_1, hidden_layer_2,
-                          output_layer]
-            try:
-                seq = Sequential(layer_list)
-            except Exception as e:
-                print(e)
-                self.fail("Initialisation with list of layers fails")
-
-        # Test initilisation with incorrect layer structure
-        with self.subTest():
-            layer_list = [hidden_layer_1, hidden_layer_2, output_layer]
-            with self.assertRaises(AssertionError):
-                seq = Sequential(layer_list)
-
-        # Test initilisation with incorrect layer structure
-        # with self.subTest():
-            # layer_list = [input_layer, hidden_layer_1, hidden_layer_2]
-            # with self.assertRaises(AssertionError):
-                # seq = Sequential(layer_list)
-
-    @defer_build()
-    def test_add_to_empty(self):
-        input_layer = InputLayer(2, 2, 10, RBF(2))
-        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
-        output_layer = OutputLayer(2, 1, 10, RBF(2))
-
-        # Add input layer only
-        with self.subTest():
-            seq = Sequential()
-            seq.add(input_layer)
-            self.assertIs(seq.layers[-1], input_layer)
-
-        # Add input layer and hidden layer
-        with self.subTest():
-            seq = Sequential()
-            seq.add(input_layer)
-            seq.add(hidden_layer_1)
-            self.assertIs(seq.layers[0], input_layer)
-            self.assertIs(seq.layers[1], hidden_layer_1)
-
-        # Add input layer, hidden layer and output layer
-        with self.subTest():
-            seq = Sequential()
-            seq.add(input_layer)
-            seq.add(hidden_layer_1)
-            seq.add(output_layer)
-            self.assertIs(seq.layers[0], input_layer)
-            self.assertIs(seq.layers[1], hidden_layer_1)
-            self.assertIs(seq.layers[2], output_layer)
-
-        # Add hidden layer as first layer
-        with self.subTest():
-            seq = Sequential()
-            with self.assertRaises(AssertionError):
-                seq.add(hidden_layer_1)
-
-        # Add output layer as first layer
-        with self.subTest():
-            seq = Sequential()
-            with self.assertRaises(AssertionError):
-                seq.add(output_layer)
-
-    @defer_build()
-    def test_add_to_full(self):
-        input_layer = InputLayer(2, 2, 10, RBF(2))
-        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
-        hidden_layer_2 = HiddenLayer(2, 2, 10, RBF(2))
-        hidden_layer_3 = HiddenLayer(3, 2, 10, RBF(3))
-        output_layer = OutputLayer(2, 2, 10, RBF(2))
 
 
-        # Add hidden layer with correct dimensions
-        with self.subTest():
-            layer_list = [input_layer, hidden_layer_1]
-            seq = Sequential(layer_list)
-            seq.add(hidden_layer_2)
-            self.assertIs(seq.layers[-1], hidden_layer_2)
+class Datum:
+    num_inducing = 10
+    num_data = 100
+    dim = 2
 
-        # Add hidden layer with incorrect dimensions
-        with self.subTest():
-            layer_list = [input_layer, hidden_layer_1]
-            seq = Sequential(layer_list)
-            with self.assertRaises(AssertionError):
-                seq.add(hidden_layer_3)
-
-        # Add output layer with correct dimensions
-        with self.subTest():
-            layer_list = [input_layer, hidden_layer_1]
-            seq = Sequential(layer_list)
-            seq.add(output_layer)
-            self.assertIs(seq.layers[-1], output_layer)
-
-        # Add hidden layer after output layer
-        with self.subTest():
-            layer_list = [input_layer, output_layer]
-            seq = Sequential(layer_list)
-            with self.assertRaises(ValueError):
-                seq.add(hidden_layer_1)
-
-    @defer_build()
-    def test_dims(self):
-        input_layer = InputLayer(2, 3, 10, RBF(2))
-        hidden_layer_1 = HiddenLayer(3, 2, 10, RBF(2))
-        hidden_layer_2 = HiddenLayer(2, 1, 10, RBF(2))
-        hidden_layer_3 = HiddenLayer(1, 2, 10, RBF(3))
-        output_layer = OutputLayer(2, 1, 10, RBF(2))
-
-        layer_list = [input_layer, hidden_layer_1, hidden_layer_2,
-                      hidden_layer_3, output_layer]
-        seq = Sequential(layer_list)
-        dims = seq.get_dims()
-        reference = [(2,3), (3,2), (2,1), (1,2), (2,1)]
-        self.assertEqual(dims, reference)
-
-    @defer_build()
-    def test_initialize_params(self):
-        input_layer = InputLayer(2, 2, 10, RBF(2))
-        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2))
-        output_layer = OutputLayer(2, 1, 10, RBF(2))
-
-        Z = np.ones((10, 2))
-        X = np.ones((100, 2))
-
-        seq = Sequential([input_layer, hidden_layer_1, output_layer])
-        seq.initialize_params(X, Z)
-
-        self.assertTrue(np.allclose(Z, seq.layers[0].feature.Z.value))
+    Z = np.ones((num_inducing, dim))
+    X = np.ones((num_data, dim))
 
 
-class MultitaskSequentialTest(unittest.TestCase):
-    @defer_build()
-    def test_initialize_params(self):
-        rng = np.random.RandomState(42)
+def create_layer_utility(input_dim, output_dim):
+    """
+    Utility function to create layer object.
+    """
+    kernel = gpflow.kernels.mo_kernels.SharedIndependentMok(
+        RBF(variance=1.0, lengthscale=1.0), output_dimensionality=output_dim
+    )
+    layer = Layer(input_dim=input_dim, output_dim=output_dim, kernel=kernel, num_inducing=Datum.num_inducing)
+    return layer
 
-        input_layer = InputLayer(2, 2, 10, RBF(2), multitask=True)
-        hidden_layer_1 = HiddenLayer(2, 2, 10, RBF(2), multitask=True)
-        output_layer = OutputLayer(2, 1, 10, RBF(2), multitask=True)
 
-        Z = np.ones((10, 2))
-        X = np.ones((100, 2))
+def test_add_to_empty():
+    """
+    Tests initializing the sequential cascade structure with an empty list of layers.
+    """
+    input_layer = create_layer_utility(2, 2)
+    hidden_layer_1 = create_layer_utility(2, 2)
+    output_layer = create_layer_utility(2, 1)
 
-        Z_ind = rng.randint(0, 2, (10,1))
-        X_ind = rng.randint(0, 2, (100,1))
+    # Add input layer only
+    seq = Sequential()
 
-        Z = np.hstack([Z, Z_ind])
-        X = np.hstack([X, X_ind])
+    seq.add(input_layer)
+    assert seq.constituents[-1] is input_layer
 
-        seq = MultitaskSequential([input_layer, hidden_layer_1, output_layer])
-        seq.initialize_params(X, Z)
+    seq.add(hidden_layer_1)
+    assert seq.constituents[-1] is hidden_layer_1
 
-        for l in seq.layers:
-            self.assertTrue(np.allclose(Z_ind, l.feature.Z.value[:, -1:]))
+    seq.add(output_layer)
+    assert seq.constituents[-1] is output_layer
 
-if __name__=="__main__":
-    unittest.main()
+
+def test_add_to_full():
+    """
+    Tests adding additional layers to a a sequential cascade structure.
+    """
+    input_layer = create_layer_utility(2, 2)
+    hidden_layer_1 = create_layer_utility(2, 2)
+    hidden_layer_2 = create_layer_utility(2, 2)
+    hidden_layer_3 = create_layer_utility(3, 2)
+
+    # Add hidden layer with correct dimensions
+    layer_list = [input_layer, hidden_layer_1]
+    seq = Sequential(layer_list)
+    seq.add(hidden_layer_2)
+    assert seq.constituents[-1] is hidden_layer_2
+
+    # Add hidden layer with incorrect dimensions
+    layer_list = [input_layer, hidden_layer_1]
+    seq = Sequential(layer_list)
+    with pytest.raises(AssertionError):
+        seq.add(hidden_layer_3)
+
+
+def test_dims():
+    """
+    Tests the get_dim utility.
+    """
+    input_layer = create_layer_utility(2, 3)
+    hidden_layer_1 = create_layer_utility(3, 2)
+    hidden_layer_2 = create_layer_utility(2, 1)
+    hidden_layer_3 = create_layer_utility(1, 2)
+    output_layer = create_layer_utility(2, 1)
+
+    layer_list = [input_layer, hidden_layer_1, hidden_layer_2,
+                  hidden_layer_3, output_layer]
+    seq = Sequential(layer_list)
+    dims = seq.get_dims()
+    reference = [(2, 3), (3, 2), (2, 1), (1, 2), (2, 1)]
+    assert dims == reference
+
+
+def test_initialize_params():
+    """
+    Tests the Layer initialization utility.
+    """
+    input_layer = create_layer_utility(2, 2)
+    hidden_layer_1 = create_layer_utility(2, 2)
+    output_layer = create_layer_utility(2, 1)
+
+    seq = Sequential([input_layer, hidden_layer_1, output_layer])
+    seq.initialize_params(Datum.X, Datum.Z)
+
+    np.testing.assert_allclose(Datum.Z, seq.constituents[0].feature.features[0].Z.numpy())
+
