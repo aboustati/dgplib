@@ -146,7 +146,7 @@ class DSDGP(GPModel):
             self.likelihood.variational_expectations(f_mean[s, :, :], f_var[s, :, :], Y) for s in range(num_samples)
         ]
         var_exp = tf.reduce_mean(tf.stack(var_exp), axis=0)
-        assert var_exp.shape == (X.shape[0], self.num_latent)
+
         if self.num_data is not None:
             num_data = tf.cast(self.num_data, var_exp.dtype)
             minibatch_size = tf.cast(tf.shape(X)[0], var_exp.dtype)

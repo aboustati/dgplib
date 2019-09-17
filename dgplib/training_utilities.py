@@ -31,7 +31,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
         optimizer.apply_gradients(zip(grads, var_list))
 
     if jit:
-        optimization_step = tf.function(optimization_step)
+        optimization_step = tf.function(optimization_step, autograph=False)
 
     for iter in range(int(maxiter)):
         optimization_step()
